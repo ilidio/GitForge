@@ -65,11 +65,11 @@ export default function DiffView({
             language={language} 
             original={original}
             modified={modified}
+            theme={theme}
             options={{
             readOnly: true,
             minimap: { enabled: false },
             renderSideBySide: renderSideBySide,
-            theme: theme, 
             automaticLayout: true,
             }}
         />

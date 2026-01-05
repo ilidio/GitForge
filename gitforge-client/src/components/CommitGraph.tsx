@@ -96,7 +96,7 @@ function calculateGraph(commits: any[]) {
     return { rows, height: sorted.length * COMMIT_HEIGHT, nodeMap };
 }
 
-export default function CommitGraph({ commits, onCommitClick, onAction }: CommitGraphProps) {
+export default function CommitGraph({ commits, branches, onCommitClick, onAction }: CommitGraphProps) {
   if (!commits || commits.length === 0) return null;
 
   const { rows, height, nodeMap } = useMemo(() => calculateGraph(commits), [commits]);

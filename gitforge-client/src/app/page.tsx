@@ -7,13 +7,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit } from '@/lib/api';
+import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
+import { getTags, createTag, deleteTag, appendFile, getBlame } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import FileTree from '@/components/FileTree';
 import RebaseDialog from '@/components/RebaseDialog';
+import CommandPalette from '@/components/CommandPalette';
+import SettingsDialog from '@/components/SettingsDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2 } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -74,6 +77,10 @@ function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { conte
                                     Cherry-Pick
                                 </ContextMenuItem>
                                 <ContextMenuSeparator />
+                                <ContextMenuItem onClick={() => onAction?.('tag', commitStub)}>
+                                    Create Tag...
+                                </ContextMenuItem>
+                                <ContextMenuSeparator />
                                 <ContextMenuItem onClick={() => onAction?.('copy', commitStub)}>
                                     Copy SHA
                                 </ContextMenuItem>
@@ -121,6 +128,7 @@ export default function Home() {
   const [status, setStatus] = useState<any>(null);
   const [branches, setBranches] = useState<any[]>([]);
   const [stashes, setStashes] = useState<any[]>([]);
+  const [tags, setTags] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [textGraph, setTextGraph] = useState('');
   const [historyLimit, setHistoryLimit] = useState(50);
@@ -148,6 +156,14 @@ export default function Home() {
   const [graphMode, setGraphMode] = useState<'visual' | 'terminal'>('terminal');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [diffMode, setDiffMode] = useState<'side-by-side' | 'inline'>('side-by-side');
+
+  // Command Palette & Settings
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  
+  // Blame State
+  const [isBlameOpen, setIsBlameOpen] = useState(false);
+  const [blameContent, setBlameContent] = useState('');
 
   // Recent Repositories
   const [recentRepos, setRecentRepos] = useState<string[]>([]);
@@ -182,7 +198,7 @@ export default function Home() {
 
   const addToRecent = (path: string) => {
     if (!path) return;
-    const updated = [path, ...recentRepos.filter(r => r !== path)].slice(0, 10);
+    const updated = [path, ...recentRepos.filter(r => r !== path)].slice(10);
     setRecentRepos(updated);
     localStorage.setItem('recentRepos', JSON.stringify(updated));
   };
@@ -206,13 +222,24 @@ export default function Home() {
         getRepoLog(path, limit),
         getBranches(path),
         getTextGraph(path),
-        getStashes(path).catch(() => []) // Fallback if not supported
+        getStashes(path).catch(() => []) 
       ]);
       setStatus(statusData);
       setHistory(logData);
       setBranches(branchData);
       setTextGraph(textGraphData.output);
       setStashes(stashData || []);
+      
+      // Load Tags via Electron IPC
+      getTags(path).then(tagStr => {
+          const parsed = tagStr.split('\n').filter(Boolean).map((line: string) => {
+              const parts = line.trim().split(/\s+/);
+              const name = parts[0];
+              return { name, message: line.substring(name.length).trim() };
+          });
+          setTags(parsed);
+      }).catch(e => console.error("Tags not supported", e));
+
       addToRecent(path);
     } catch (err: any) {
       setError(err.message || 'Failed to load repository');
@@ -258,6 +285,7 @@ export default function Home() {
       if (action === 'merge') handleMerge(commit.id);
       if (action === 'cherrypick') handleCherryPick(commit.id);
       if (action === 'rebase') handleStartRebase(commit.id);
+      if (action === 'tag') handleCreateTag(commit.id);
   };
 
   const handleTerminalCommitClick = (sha: string) => {
@@ -377,6 +405,54 @@ export default function Home() {
       }
   };
 
+  const handleCreateTag = async (sha: string) => {
+      const name = prompt("Tag Name:");
+      if (!name) return;
+      setActionLoading(true);
+      try {
+          await createTag(repoPath, name, name, sha);
+          await loadRepo(historyLimit);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleDeleteTag = async (name: string) => {
+      if (!confirm(`Delete tag ${name}?`)) return;
+      setActionLoading(true);
+      try {
+          await deleteTag(repoPath, name);
+          await loadRepo(historyLimit);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleIgnoreFile = async (path: string) => {
+      try {
+          // Check if .gitignore exists first? fs append will create if not exists usually.
+          await appendFile(`${repoPath}/.gitignore`, `\n${path}`);
+          await loadRepo(historyLimit);
+      } catch (err: any) {
+          setError(err.message);
+      }
+  };
+
+  const handleBlame = async () => {
+      if (!selectedFile) return;
+      try {
+          const content = await getBlame(repoPath, selectedFile);
+          setBlameContent(content);
+          setIsBlameOpen(true);
+      } catch (err: any) {
+          setError(err.message);
+      }
+  };
+
   const handleFetch = async () => {
       setActionLoading(true);
       try {
@@ -487,30 +563,35 @@ export default function Home() {
       <div className="w-64 border-r flex flex-col h-full overflow-hidden">
         <div className="p-4 font-bold text-xl tracking-tight flex-shrink-0 flex justify-between items-center">
             <span>GitForge</span>
-            <Dialog open={isCreateBranchOpen} onOpenChange={setIsCreateBranchOpen}>
-                <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" title="Create Branch">
-                        <Plus className="h-4 w-4" />
-                    </Button>
-                </DialogTrigger>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Create New Branch</DialogTitle>
-                        <DialogDescription>
-                            Create a new branch from the current HEAD.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                            <Label htmlFor="name" className="text-right">Name</Label>
-                            <Input id="name" value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} className="col-span-3" />
+            <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-6 w-6" title="Settings" onClick={() => setIsSettingsOpen(true)}>
+                    <Settings2 className="h-4 w-4" />
+                </Button>
+                <Dialog open={isCreateBranchOpen} onOpenChange={setIsCreateBranchOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Create Branch">
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogHeader>
+                            <DialogTitle>Create New Branch</DialogTitle>
+                            <DialogDescription>
+                                Create a new branch from the current HEAD.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right">Name</Label>
+                                <Input id="name" value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} className="col-span-3" />
+                            </div>
                         </div>
-                    </div>
-                    <DialogFooter>
-                        <Button onClick={handleCreateBranch} disabled={!newBranchName || actionLoading}>Create Branch</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                        <DialogFooter>
+                            <Button onClick={handleCreateBranch} disabled={!newBranchName || actionLoading}>Create Branch</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            </div>
         </div>
         <Separator />
         <ScrollArea className="flex-1 p-4">
@@ -519,7 +600,7 @@ export default function Home() {
                 <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input 
                     placeholder="Search branches..." 
-                    className="pl-7 h-8 text-xs" 
+                    className="pl-7 h-8 text-xs"
                     value={branchSearch}
                     onChange={(e) => setBranchSearch(e.target.value)}
                 />
@@ -578,6 +659,29 @@ export default function Home() {
                 </div>
             )}
             
+            {tags.length > 0 && (
+                <div>
+                    <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Tags</h3>
+                    <div className="space-y-1">
+                        {tags.map((t, i) => (
+                            <ContextMenu key={i}>
+                                <ContextMenuTrigger>
+                                    <div className="text-sm px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default flex items-center gap-2">
+                                        <Tag className="h-3 w-3" />
+                                        <span className="truncate" title={t.message}>{t.name}</span>
+                                    </div>
+                                </ContextMenuTrigger>
+                                <ContextMenuContent>
+                                    <ContextMenuItem onClick={() => handleDeleteTag(t.name)}>
+                                        <Trash className="w-3 h-3 mr-2" /> Delete Tag
+                                    </ContextMenuItem>
+                                </ContextMenuContent>
+                            </ContextMenu>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {stashes.length > 0 && (
                 <div>
                     <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center">
@@ -609,7 +713,7 @@ export default function Home() {
             
             <div className="flex flex-col gap-2">
                 <Button 
-                    variant={viewMode === 'workdir' ? 'secondary' : 'ghost'} 
+                    variant={viewMode === 'workdir' ? 'secondary' : 'ghost'}
                     size="sm" 
                     className="justify-start"
                     onClick={() => { setViewMode('workdir'); setSelectedFile(null); setDiffData(null); }}
@@ -662,7 +766,7 @@ export default function Home() {
         {error && (
           <div className="p-4 bg-destructive/10 text-destructive text-sm border-b flex justify-between items-center flex-shrink-0">
             <span>{error}</span>
-            <Button variant="ghost" size="xs" onClick={() => setError('')}>Dismiss</Button>
+            <Button variant="ghost" size="sm" onClick={() => setError('')}>Dismiss</Button>
           </div>
         )}
 
@@ -675,7 +779,7 @@ export default function Home() {
                     {viewMode === 'workdir' ? 'Changes' : 'Commit Details'}
                 </span>
                 {viewMode === 'commit' ? (
-                    <Button variant="ghost" size="xs" onClick={() => setViewMode('workdir')} className="h-7 text-[10px]">
+                    <Button variant="ghost" size="sm" onClick={() => setViewMode('workdir')} className="h-7 text-[10px]">
                         Back to WD
                     </Button>
                 ) : (
@@ -683,7 +787,7 @@ export default function Home() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadRepo(historyLimit)} title="Refresh Status">
                             <RefreshCw className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="xs" onClick={async () => {
+                        <Button variant="ghost" size="sm" onClick={async () => {
                             if (!status?.files) return;
                             setActionLoading(true);
                             try {
@@ -697,7 +801,7 @@ export default function Home() {
                         }} className="h-7 text-[10px]">
                             Stage All
                         </Button>
-                        <Button variant="ghost" size="xs" onClick={async () => {
+                        <Button variant="ghost" size="sm" onClick={async () => {
                             if (!status?.files) return;
                             setActionLoading(true);
                             try {
@@ -737,6 +841,10 @@ export default function Home() {
                             Cherry-Pick
                         </ContextMenuItem>
                         <ContextMenuSeparator />
+                        <ContextMenuItem onClick={() => handleCreateTag(selectedCommit.id)}>
+                            Create Tag...
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
                         <ContextMenuItem onClick={() => {
                             navigator.clipboard.writeText(selectedCommit.id);
                         }}>
@@ -760,6 +868,7 @@ export default function Home() {
                             await loadRepo(historyLimit);
                         } catch (err: any) { setError(err.message); }
                     }}
+                    onIgnore={handleIgnoreFile}
                 />
                 
                 {((viewMode === 'workdir' ? !status?.files?.length : !commitFiles.length)) && repoPath && !loading && (
@@ -818,16 +927,16 @@ export default function Home() {
                             <span className="font-mono font-bold truncate">{selectedFile}</span>
                             <div className="flex items-center bg-muted/50 rounded p-0.5">
                                 <Button 
-                                    variant={diffMode === 'side-by-side' ? 'secondary' : 'ghost'} 
-                                    size="xs" 
+                                    variant={diffMode === 'side-by-side' ? 'secondary' : 'ghost'}
+                                    size="sm" 
                                     className="h-6 px-2 text-[10px]"
                                     onClick={() => setDiffMode('side-by-side')}
                                 >
                                     Side-by-Side
                                 </Button>
                                 <Button 
-                                    variant={diffMode === 'inline' ? 'secondary' : 'ghost'} 
-                                    size="xs" 
+                                    variant={diffMode === 'inline' ? 'secondary' : 'ghost'}
+                                    size="sm" 
                                     className="h-6 px-2 text-[10px]"
                                     onClick={() => setDiffMode('inline')}
                                 >
@@ -835,9 +944,14 @@ export default function Home() {
                                 </Button>
                             </div>
                          </div>
-                         <Button variant="ghost" size="sm" className="h-8" onClick={() => { setSelectedFile(null); setDiffData(null); }}>
-                             Close Diff
-                         </Button>
+                         <div className="flex items-center gap-1">
+                             <Button variant="ghost" size="sm" className="h-8" onClick={handleBlame} title="View Blame">
+                                 <FileCode className="h-4 w-4 mr-1" /> Blame
+                             </Button>
+                             <Button variant="ghost" size="sm" className="h-8" onClick={() => { setSelectedFile(null); setDiffData(null); }}>
+                                 Close Diff
+                             </Button>
+                         </div>
                      </div>
                      <div className="flex-1 p-2 overflow-hidden">
                         <DiffView 
@@ -857,23 +971,23 @@ export default function Home() {
                             <div className="relative w-48 mr-2">
                                 <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Search history..." 
-                                    className="pl-7 h-7 text-[10px] bg-background/50" 
+                                    placeholder="Search history..."
+                                    className="pl-7 h-7 text-[10px] bg-background/50"
                                     value={historySearch}
                                     onChange={(e) => setHistorySearch(e.target.value)}
                                 />
                             </div>
                             <Button 
-                                variant={graphMode === 'visual' ? 'secondary' : 'ghost'} 
-                                size="xs" 
+                                variant={graphMode === 'visual' ? 'secondary' : 'ghost'}
+                                size="sm" 
                                 onClick={() => setGraphMode('visual')}
                                 title="Visual Graph"
                             >
                                 <GitGraphIcon className="h-4 w-4" />
                             </Button>
                             <Button 
-                                variant={graphMode === 'terminal' ? 'secondary' : 'ghost'} 
-                                size="xs" 
+                                variant={graphMode === 'terminal' ? 'secondary' : 'ghost'}
+                                size="sm" 
                                 onClick={() => setGraphMode('terminal')}
                                 title="Terminal Graph"
                             >
@@ -881,7 +995,7 @@ export default function Home() {
                             </Button>
                             <Separator orientation="vertical" className="h-4" />
                             {history.length > 0 && (
-                                <Button variant="outline" size="xs" onClick={loadMore} disabled={loading} className="h-7 text-[10px]">
+                                <Button variant="outline" size="sm" onClick={loadMore} disabled={loading} className="h-7 text-[10px]">
                                     {loading ? 'Loading...' : 'Load 50 More'}
                                 </Button>
                             )}
@@ -929,6 +1043,36 @@ export default function Home() {
         commits={rebaseCommits} 
         onConfirm={onRebaseConfirm}
         targetBranch={rebaseTarget}
+      />
+
+      <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+            <DialogHeader>
+                <DialogTitle>Blame: {selectedFile}</DialogTitle>
+            </DialogHeader>
+            <ScrollArea className="flex-1 border rounded p-2 bg-muted/50 font-mono text-xs whitespace-pre overflow-auto">
+                {blameContent}
+            </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <CommandPalette  
+        open={isCommandOpen} 
+        onOpenChange={setIsCommandOpen}
+        repoPath={repoPath}
+        actions={{
+            fetch: handleFetch,
+            pull: handlePull,
+            push: handlePush,
+            commit: handleCommit,
+            createBranch: () => setIsCreateBranchOpen(true),
+            openSettings: () => setIsSettingsOpen(true),
+        }}
+      />
+      <SettingsDialog 
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+        repoPath={repoPath}
       />
       
       {/* Status Bar */}

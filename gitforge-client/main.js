@@ -1,9 +1,22 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron');
 const path = require('path');
 const isDev = require('electron-is-dev');
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
+const fs = require('fs');
 
 let sidecarProcess = null;
+
+function runGit(command, cwd) {
+  return new Promise((resolve, reject) => {
+      exec(command, { cwd, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+          if (error) {
+              reject({ message: error.message, stderr, stdout });
+          } else {
+              resolve(stdout.trim());
+          }
+      });
+  });
+}
 
 function startSidecar() {
   if (isDev) {
@@ -56,6 +69,61 @@ app.whenReady().then(() => {
       return { canceled, filePaths: [] };
     }
     return { canceled, filePaths };
+  });
+
+  // --- Git IPC Handlers ---
+
+  // Tags
+  ipcMain.handle('git:getTags', async (_, repoPath) => {
+      return runGit('git tag -n', repoPath);
+  });
+
+  ipcMain.handle('git:createTag', async (_, { repoPath, name, message, sha }) => {
+      let cmd = `git tag -a "${name}" -m "${message || name}"`;
+      if (sha) cmd += ` ${sha}`;
+      return runGit(cmd, repoPath);
+  });
+
+  ipcMain.handle('git:deleteTag', async (_, { repoPath, name }) => {
+      return runGit(`git tag -d "${name}"`, repoPath);
+  });
+
+  // Blame
+  ipcMain.handle('git:blame', async (_, { repoPath, filePath }) => {
+      // -p for porcelain format might be better, but start with standard for simplicity or -t
+      return runGit(`git blame "${filePath}"`, repoPath);
+  });
+
+  // Config
+  ipcMain.handle('git:getConfig', async (_, repoPath) => {
+      return runGit('git config --list', repoPath);
+  });
+
+  ipcMain.handle('git:setConfig', async (_, { repoPath, key, value }) => {
+      return runGit(`git config "${key}" "${value}"`, repoPath);
+  });
+
+  // Remotes
+  ipcMain.handle('git:getRemotes', async (_, repoPath) => {
+      return runGit('git remote -v', repoPath);
+  });
+
+  ipcMain.handle('git:addRemote', async (_, { repoPath, name, url }) => {
+      return runGit(`git remote add "${name}" "${url}"`, repoPath);
+  });
+
+  ipcMain.handle('git:removeRemote', async (_, { repoPath, name }) => {
+      return runGit(`git remote remove "${name}"`, repoPath);
+  });
+
+  // File System
+  ipcMain.handle('fs:appendFile', async (_, { path: filePath, content }) => {
+      return new Promise((resolve, reject) => {
+          fs.appendFile(filePath, content, (err) => {
+              if (err) reject(err);
+              else resolve();
+          });
+      });
   });
 
   startSidecar();
