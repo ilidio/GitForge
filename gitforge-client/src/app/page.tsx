@@ -900,9 +900,16 @@ export default function Home() {
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleUndoCommit} title="Undo Last Commit (Soft Reset)">
                                 <Undo className="h-3.5 w-3.5" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleStashPush} title="Stash Changes">
-                                <Archive className="h-3.5 w-3.5" />
-                            </Button>
+                            {status?.files?.length > 0 && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={handleStashPush} title="Stash Changes">
+                                    <Archive className="h-3.5 w-3.5 mr-1" /> Stash
+                                </Button>
+                            )}
+                            {stashes.length > 0 && (
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => handleStashPop(0)} title="Pop Latest Stash">
+                                    <ArrowUp className="h-3.5 w-3.5 mr-1" /> Pop
+                                </Button>
+                            )}
                         </div>
                     </div>
                     <Textarea 
