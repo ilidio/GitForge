@@ -126,6 +126,37 @@ app.whenReady().then(() => {
       });
   });
 
+  ipcMain.handle('fs:writeFile', async (_, { path: filePath, content }) => {
+      return new Promise((resolve, reject) => {
+          fs.writeFile(filePath, content, (err) => {
+              if (err) reject(err);
+              else resolve();
+          });
+      });
+  });
+
+  // History & Undo
+  ipcMain.handle('git:logFile', async (_, { repoPath, filePath, limit = 50 }) => {
+      return runGit(`git log -n ${limit} --pretty=format:"%H|%an|%ad|%s" --date=iso -- "${filePath}"`, repoPath);
+  });
+
+  ipcMain.handle('git:reflog', async (_, { repoPath, limit = 20 }) => {
+      return runGit(`git reflog -n ${limit} --pretty=format:"%H|%gd|%gs"`, repoPath);
+  });
+
+  ipcMain.handle('git:reset', async (_, { repoPath, target, mode = 'mixed' }) => {
+      // mode: soft, mixed, hard
+      return runGit(`git reset --${mode} "${target}"`, repoPath);
+  });
+
+  ipcMain.handle('git:openDifftool', async (_, { repoPath, filePath }) => {
+      // -y to suppress prompt, & to run in background (but exec waits, which is okay)
+      // Actually, we usually want it to detach?
+      // For now, let's just run it. If it blocks, it blocks the promise, but maybe not the UI if handled correctly.
+      // Better: spawn it and don't wait? No, git difftool needs to run.
+      return runGit(`git difftool -y "${filePath}"`, repoPath);
+  });
+
   startSidecar();
   createWindow();
 });

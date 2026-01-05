@@ -21,6 +21,9 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
     const [loading, setLoading] = useState(false);
     const [newRemoteName, setNewRemoteName] = useState('');
     const [newRemoteUrl, setNewRemoteUrl] = useState('');
+    
+    // Tools
+    const [diffTool, setDiffTool] = useState('');
 
     const loadSettings = async () => {
         if (!repoPath || !open) return;
@@ -30,12 +33,15 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             const lines = config.split('\n');
             let name = '';
             let email = '';
+            let tool = '';
             for (const line of lines) {
                 if (line.startsWith('user.name=')) name = line.substring(10);
                 if (line.startsWith('user.email=')) email = line.substring(11);
+                if (line.startsWith('diff.tool=')) tool = line.substring(10);
             }
             setUserName(name);
             setUserEmail(email);
+            setDiffTool(tool);
 
             const remotesData = await getRemotes(repoPath);
             setRemotes(remotesData.split('\n').filter((r: string) => r.trim() !== ''));
@@ -57,6 +63,24 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             alert('User config saved!');
         } catch (e) {
             alert('Failed to save config');
+        }
+    };
+
+    const handleSaveTool = async (tool: string) => {
+        setDiffTool(tool);
+        try {
+            if (tool === 'vscode') {
+                await setConfig(repoPath, 'diff.tool', 'vscode');
+                await setConfig(repoPath, 'difftool.vscode.cmd', 'code --wait --diff "$LOCAL" "$REMOTE"');
+            } else if (tool === 'kdiff3') {
+                await setConfig(repoPath, 'diff.tool', 'kdiff3');
+                // Assume kdiff3 is in path or already configured path
+            } else {
+                await setConfig(repoPath, 'diff.tool', tool);
+            }
+            alert(`Diff tool set to ${tool}`);
+        } catch (e) {
+            alert('Failed to save tool config');
         }
     };
 
@@ -107,6 +131,26 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                             </div>
                             <div className="flex justify-end">
                                 <Button size="sm" onClick={handleSaveUser}><Save className="w-4 h-4 mr-2" /> Save Identity</Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border p-4 rounded-md">
+                            <h3 className="font-medium text-sm">External Tools</h3>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Diff Tool</Label>
+                                <div className="col-span-3 flex gap-2">
+                                    <select 
+                                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={diffTool}
+                                        onChange={(e) => handleSaveTool(e.target.value)}
+                                    >
+                                        <option value="">System Default</option>
+                                        <option value="kdiff3">KDiff3</option>
+                                        <option value="vscode">VS Code</option>
+                                        <option value="meld">Meld</option>
+                                        <option value="bc3">Beyond Compare 3</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 

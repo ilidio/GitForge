@@ -8,15 +8,21 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame } from '@/lib/electron';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import FileTree from '@/components/FileTree';
 import RebaseDialog from '@/components/RebaseDialog';
 import CommandPalette from '@/components/CommandPalette';
 import SettingsDialog from '@/components/SettingsDialog';
+import FileHistoryDialog from '@/components/FileHistoryDialog';
+import MergeConflictView from '@/components/MergeConflictView';
+import SidebarPRSection from '@/components/SidebarPRSection';
+import GitFlowDialog from '@/components/GitFlowDialog';
+import WorkspaceDialog from '@/components/WorkspaceDialog';
+import TemplateSelector from '@/components/TemplateSelector';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -165,8 +171,24 @@ export default function Home() {
   const [isBlameOpen, setIsBlameOpen] = useState(false);
   const [blameContent, setBlameContent] = useState('');
 
+  // File History State
+  const [isFileHistoryOpen, setIsFileHistoryOpen] = useState(false);
+  const [historyFilePath, setHistoryFilePath] = useState<string | null>(null);
+
+  // Git Flow State
+  const [isGitFlowOpen, setIsGitFlowOpen] = useState(false);
+
+  // Workspaces State
+  const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+
   // Recent Repositories
   const [recentRepos, setRecentRepos] = useState<string[]>([]);
+  
+  // Advanced Search State
+  const [searchAuthor, setSearchAuthor] = useState('');
+  const [searchDate, setSearchDate] = useState('');
 
   // Commit State
   const [commitMessage, setCommitMessage] = useState('');
@@ -186,11 +208,20 @@ export default function Home() {
         console.error("Failed to parse recent repos", e);
       }
     }
+    const savedWs = localStorage.getItem('workspaces');
+    if (savedWs) {
+        try { setWorkspaces(JSON.parse(savedWs)); } catch {}
+    }
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark';
     if (savedTheme) {
         setTheme(savedTheme);
     }
   }, []);
+
+  const saveWorkspaces = (newWs: any[]) => {
+      setWorkspaces(newWs);
+      localStorage.setItem('workspaces', JSON.stringify(newWs));
+  };
 
   useEffect(() => {
       localStorage.setItem('theme', theme);
@@ -453,6 +484,18 @@ export default function Home() {
       }
   };
 
+  const handleOpenExternalDiff = async () => {
+      if (!selectedFile) return;
+      setActionLoading(true);
+      try {
+          await openDifftool(repoPath, selectedFile);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
   const handleFetch = async () => {
       setActionLoading(true);
       try {
@@ -527,6 +570,36 @@ export default function Home() {
       }
   };
 
+  const handleMagicUndo = async () => {
+      setActionLoading(true);
+      try {
+          const reflog = await getReflog(repoPath, 2);
+          const entries = reflog.split('\n');
+          // entries[0] is HEAD@{0} (current), entries[1] is HEAD@{1} (previous)
+          if (entries.length < 2) {
+              alert("Nothing to undo.");
+              return;
+          }
+          const prev = entries[1].split('|');
+          const sha = prev[0];
+          const action = prev[2];
+
+          if (!confirm(`Undo last action ("${action}")? This will HARD reset to ${sha}.`)) return;
+
+          await reset(repoPath, sha, 'hard');
+          await loadRepo(historyLimit);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleFileHistory = (path: string) => {
+      setHistoryFilePath(path);
+      setIsFileHistoryOpen(true);
+  };
+
   const handleStartRebase = async (target: string) => {
       setActionLoading(true);
       try {
@@ -564,6 +637,9 @@ export default function Home() {
         <div className="p-4 font-bold text-xl tracking-tight flex-shrink-0 flex justify-between items-center">
             <span>GitForge</span>
             <div className="flex gap-1">
+                <Button variant="ghost" size="icon" className="h-6 w-6" title="Git Flow" onClick={() => setIsGitFlowOpen(true)}>
+                    <GitBranch className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6" title="Settings" onClick={() => setIsSettingsOpen(true)}>
                     <Settings2 className="h-4 w-4" />
                 </Button>
@@ -623,6 +699,44 @@ export default function Home() {
                   </div>
                 </div>
             )}
+            
+            <div>
+                <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center">
+                    <span>Workspaces</span>
+                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsWorkspaceOpen(true)}>
+                        <Folder className="h-3 w-3" />
+                    </Button>
+                </h3>
+                <div className="space-y-1">
+                    {workspaces.map(ws => (
+                        <div key={ws.id}>
+                            <div 
+                                className={`text-sm px-2 py-1 rounded cursor-pointer flex items-center gap-2 hover:bg-muted ${activeWorkspaceId === ws.id ? 'font-bold' : ''}`}
+                                onClick={() => setActiveWorkspaceId(ws.id === activeWorkspaceId ? null : ws.id)}
+                            >
+                                <Folder className="h-3 w-3 text-blue-400" />
+                                <span className="truncate">{ws.name}</span>
+                            </div>
+                            {activeWorkspaceId === ws.id && (
+                                <div className="ml-4 border-l pl-2 mt-1 space-y-1">
+                                    {ws.repos.map((r: string) => (
+                                        <div 
+                                            key={r}
+                                            className={`text-xs px-2 py-1 rounded cursor-pointer truncate ${repoPath === r ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'}`}
+                                            onClick={() => { setRepoPath(r); loadRepo(50, r); }}
+                                            title={r}
+                                        >
+                                            {r.split('/').pop()}
+                                        </div>
+                                    ))}
+                                    {ws.repos.length === 0 && <div className="text-[10px] text-muted-foreground italic px-2">Empty</div>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {workspaces.length === 0 && <div className="text-xs text-muted-foreground px-2 italic">No workspaces</div>}
+                </div>
+            </div>
 
             <div>
               <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Local Branches</h3>
@@ -693,7 +807,22 @@ export default function Home() {
                     <div className="space-y-1">
                         {stashes.map((s, i) => (
                             <div key={i} className="group flex items-center justify-between text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default">
-                                <span className="truncate" title={s.message}>{s.message || `stash@{${i}}`}</span>
+                                <span 
+                                    className="truncate cursor-pointer hover:text-foreground" 
+                                    title="Click to view stash content"
+                                    onClick={() => {
+                                        // View Stash Inspector
+                                        // Treat stash as a commit for the view
+                                        handleCommitClick({
+                                            id: `stash@{${i}}`,
+                                            message: s.message || `On ${branches.find(b => b.isCurrentRepositoryHead)?.name}: Stash`,
+                                            author: 'Stash',
+                                            timestamp: new Date().toISOString() // Approximate or fetch
+                                        });
+                                    }}
+                                >
+                                    {s.message || `stash@{${i}}`}
+                                </span>
                                 <Button 
                                     variant="ghost" 
                                     size="icon" 
@@ -709,7 +838,9 @@ export default function Home() {
                 </div>
             )}
             
-            <Separator />
+            <SidebarPRSection repoPath={repoPath} onCheckout={handleCheckout} />
+
+            <Separator className="my-4" />
             
             <div className="flex flex-col gap-2">
                 <Button 
@@ -748,6 +879,9 @@ export default function Home() {
           <div className="flex-1" />
           
           <div className="flex items-center space-x-1">
+              <Button variant="outline" size="sm" onClick={handleMagicUndo} disabled={actionLoading} title="Magic Undo (Revert last action)">
+                  <RotateCcw className="h-4 w-4 mr-1" /> Undo
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title="Toggle Theme">
                   {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               </Button>
@@ -869,6 +1003,7 @@ export default function Home() {
                         } catch (err: any) { setError(err.message); }
                     }}
                     onIgnore={handleIgnoreFile}
+                    onHistory={handleFileHistory}
                 />
                 
                 {((viewMode === 'workdir' ? !status?.files?.length : !commitFiles.length)) && repoPath && !loading && (
@@ -910,6 +1045,7 @@ export default function Home() {
                                     <ArrowUp className="h-3.5 w-3.5 mr-1" /> Pop
                                 </Button>
                             )}
+                            <TemplateSelector onSelect={(txt) => setCommitMessage(txt)} />
                         </div>
                     </div>
                     <Textarea 
@@ -952,6 +1088,9 @@ export default function Home() {
                             </div>
                          </div>
                          <div className="flex items-center gap-1">
+                             <Button variant="ghost" size="sm" className="h-8" onClick={handleOpenExternalDiff} title="Open in External Diff Tool" disabled={actionLoading}>
+                                 <ExternalLink className="h-4 w-4 mr-1" /> Open
+                             </Button>
                              <Button variant="ghost" size="sm" className="h-8" onClick={handleBlame} title="View Blame">
                                  <FileCode className="h-4 w-4 mr-1" /> Blame
                              </Button>
@@ -961,13 +1100,26 @@ export default function Home() {
                          </div>
                      </div>
                      <div className="flex-1 p-2 overflow-hidden">
-                        <DiffView 
-                            original={diffData.originalContent} 
-                            modified={diffData.modifiedContent} 
-                            language={getLanguageFromPath(selectedFile)}
-                            theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
-                            renderSideBySide={diffMode === 'side-by-side'}
-                        />
+                        {diffData.modifiedContent.includes('<<<<<<<') && diffData.modifiedContent.includes('=======') && diffData.modifiedContent.includes('>>>>>>>') ? (
+                            <MergeConflictView 
+                                filePath={selectedFile} 
+                                content={diffData.modifiedContent} 
+                                repoPath={repoPath}
+                                onResolve={() => {
+                                    // Refresh status and re-select to update view
+                                    loadRepo(historyLimit);
+                                    handleFileClick(selectedFile);
+                                }}
+                            />
+                        ) : (
+                            <DiffView 
+                                original={diffData.originalContent} 
+                                modified={diffData.modifiedContent} 
+                                language={getLanguageFromPath(selectedFile)}
+                                theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
+                                renderSideBySide={diffMode === 'side-by-side'}
+                            />
+                        )}
                      </div>
                  </div>
              ) : (
@@ -975,20 +1127,33 @@ export default function Home() {
                     <div className="p-3 border-b font-medium bg-muted/50 flex justify-between items-center h-12 flex-shrink-0">
                         <span className="text-sm uppercase tracking-wider font-bold">History Graph</span>
                         <div className="flex items-center gap-2">
-                            <div className="relative w-48 mr-2">
-                                <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search history..."
-                                    className="pl-7 h-7 text-[10px] bg-background/50"
-                                    value={historySearch}
-                                    onChange={(e) => setHistorySearch(e.target.value)}
-                                />
-                            </div>
-                            <Button 
-                                variant={graphMode === 'visual' ? 'secondary' : 'ghost'}
-                                size="sm" 
-                                onClick={() => setGraphMode('visual')}
-                                title="Visual Graph"
+                                                        <div className="relative w-48 mr-2">
+                                                            <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
+                                                            <Input 
+                                                                placeholder="Search history..." 
+                                                                className="pl-7 h-7 text-[10px] bg-background/50" 
+                                                                value={historySearch}
+                                                                onChange={(e) => setHistorySearch(e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <Input 
+                                                                placeholder="Author" 
+                                                                className="w-24 h-7 text-[10px] bg-background/50"
+                                                                value={searchAuthor}
+                                                                onChange={(e) => setSearchAuthor(e.target.value)}
+                                                            />
+                                                            <Input 
+                                                                placeholder="Date (YYYY-MM-DD)" 
+                                                                className="w-28 h-7 text-[10px] bg-background/50"
+                                                                value={searchDate}
+                                                                onChange={(e) => setSearchDate(e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <Button 
+                                                            variant={graphMode === 'visual' ? 'secondary' : 'ghost'} 
+                                                            size="sm" 
+                                                            onClick={() => setGraphMode('visual')}                                title="Visual Graph"
                             >
                                 <GitGraphIcon className="h-4 w-4" />
                             </Button>
@@ -1012,11 +1177,19 @@ export default function Home() {
                         {graphMode === 'visual' ? (
                             history.length > 0 ? (
                                 <CommitGraph 
-                                    commits={history.filter(c => 
-                                        c.message.toLowerCase().includes(historySearch.toLowerCase()) || 
-                                        c.id.toLowerCase().includes(historySearch.toLowerCase()) ||
-                                        c.author.toLowerCase().includes(historySearch.toLowerCase())
-                                    )} 
+                                    commits={history.filter(c => {
+                                        const matchesText = !historySearch || 
+                                            c.message.toLowerCase().includes(historySearch.toLowerCase()) || 
+                                            c.id.toLowerCase().includes(historySearch.toLowerCase());
+                                        
+                                        const matchesAuthor = !searchAuthor || 
+                                            c.author.toLowerCase().includes(searchAuthor.toLowerCase());
+
+                                        const matchesDate = !searchDate || 
+                                            c.timestamp.includes(searchDate);
+
+                                        return matchesText && matchesAuthor && matchesDate;
+                                    })} 
                                     branches={branches} 
                                     onCommitClick={handleCommitClick} 
                                     onAction={handleGraphAction} 
@@ -1050,6 +1223,27 @@ export default function Home() {
         commits={rebaseCommits} 
         onConfirm={onRebaseConfirm}
         targetBranch={rebaseTarget}
+      />
+
+      <FileHistoryDialog 
+        open={isFileHistoryOpen} 
+        onOpenChange={setIsFileHistoryOpen} 
+        repoPath={repoPath} 
+        filePath={historyFilePath} 
+      />
+
+      <GitFlowDialog 
+        open={isGitFlowOpen} 
+        onOpenChange={setIsGitFlowOpen} 
+        repoPath={repoPath} 
+        onRefresh={() => loadRepo(historyLimit)}
+      />
+      
+      <WorkspaceDialog 
+        open={isWorkspaceOpen} 
+        onOpenChange={setIsWorkspaceOpen} 
+        workspaces={workspaces} 
+        onSave={saveWorkspaces} 
       />
 
       <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>

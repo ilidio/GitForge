@@ -61,3 +61,28 @@ export async function appendFile(path: string, content: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('fs:appendFile', { path, content });
 }
+
+export async function writeFile(path: string, content: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('fs:writeFile', { path, content });
+}
+
+export async function getFileHistory(repoPath: string, filePath: string, limit = 50) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:logFile', { repoPath, filePath, limit });
+}
+
+export async function getReflog(repoPath: string, limit = 20) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:reflog', { repoPath, limit });
+}
+
+export async function reset(repoPath: string, target: string, mode: 'soft' | 'mixed' | 'hard' = 'mixed') {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:reset', { repoPath, target, mode });
+}
+
+export async function openDifftool(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:openDifftool', { repoPath, filePath });
+}
