@@ -69,12 +69,16 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
     const handleSaveTool = async (tool: string) => {
         setDiffTool(tool);
         try {
+            const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
             if (tool === 'vscode') {
                 await setConfig(repoPath, 'diff.tool', 'vscode');
                 await setConfig(repoPath, 'difftool.vscode.cmd', 'code --wait --diff "$LOCAL" "$REMOTE"');
             } else if (tool === 'kdiff3') {
                 await setConfig(repoPath, 'diff.tool', 'kdiff3');
-                // Assume kdiff3 is in path or already configured path
+                if (isMac) {
+                    // Specific path for KDiff3 on macOS Applications folder
+                    await setConfig(repoPath, 'difftool.kdiff3.path', '/Applications/kdiff3.app/Contents/MacOS/kdiff3');
+                }
             } else {
                 await setConfig(repoPath, 'diff.tool', tool);
             }
