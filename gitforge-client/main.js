@@ -6,9 +6,16 @@ const fs = require('fs');
 
 let sidecarProcess = null;
 
-function runGit(command, cwd) {
+function runGit(command, repoPath) {
+  // Normalize path for the OS
+  const normalizedPath = path.normalize(repoPath);
+  
   return new Promise((resolve, reject) => {
-      exec(command, { cwd, maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+      // Use a larger maxBuffer and ensure the path is handled correctly by the shell
+      exec(command, { 
+          cwd: normalizedPath, 
+          maxBuffer: 1024 * 1024 * 10 
+      }, (error, stdout, stderr) => {
           if (error) {
               reject({ message: error.message, stderr, stdout });
           } else {
@@ -19,17 +26,20 @@ function runGit(command, cwd) {
 }
 
 function startSidecar() {
+  const isWindows = process.platform === 'win32';
+  const dotnetCmd = isWindows ? 'dotnet.exe' : 'dotnet';
+
   if (isDev) {
-    // In dev, we assume the server is started separately or we start it via dotnet run
     console.log('Starting sidecar in dev mode...');
-    const serverPath = path.join(__dirname, '../gitforge-server');
-    sidecarProcess = spawn('dotnet', ['run', '--project', 'GitForge.Server.csproj'], {
+    const serverPath = path.resolve(__dirname, '..', 'gitforge-server');
+    sidecarProcess = spawn(dotnetCmd, ['run', '--project', 'GitForge.Server.csproj'], {
       cwd: serverPath,
       stdio: 'inherit',
+      shell: isWindows // Windows needs shell for dotnet run often
     });
   } else {
-    // In production, we would point to the bundled executable
-    const sidecarPath = path.join(process.resourcesPath, 'GitForge.Server');
+    const binaryName = isWindows ? 'GitForge.Server.exe' : 'GitForge.Server';
+    const sidecarPath = path.join(process.resourcesPath, binaryName);
     sidecarProcess = spawn(sidecarPath, [], { stdio: 'inherit' });
   }
 
@@ -39,6 +49,8 @@ function startSidecar() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+  
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -46,12 +58,14 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
     },
-    titleBarStyle: 'hiddenInset', // Modern macOS look
+    // Only use hiddenInset on macOS for the modern integrated look
+    titleBarStyle: isMac ? 'hiddenInset' : 'default',
+    frame: true,
   });
 
   const url = isDev
     ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '../out/index.html')}`;
+    : `file://${path.join(__dirname, '..', 'out', 'index.html')}`;
 
   win.loadURL(url);
 
@@ -65,20 +79,17 @@ app.whenReady().then(() => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory']
     });
-    if (canceled) {
-      return { canceled, filePaths: [] };
-    }
-    return { canceled, filePaths };
+    return { canceled, filePaths: filePaths || [] };
   });
 
   // --- Git IPC Handlers ---
 
-  // Tags
   ipcMain.handle('git:getTags', async (_, repoPath) => {
       return runGit('git tag -n', repoPath);
   });
 
   ipcMain.handle('git:createTag', async (_, { repoPath, name, message, sha }) => {
+      // Quote arguments to handle spaces and special chars
       let cmd = `git tag -a "${name}" -m "${message || name}"`;
       if (sha) cmd += ` ${sha}`;
       return runGit(cmd, repoPath);
@@ -88,13 +99,10 @@ app.whenReady().then(() => {
       return runGit(`git tag -d "${name}"`, repoPath);
   });
 
-  // Blame
   ipcMain.handle('git:blame', async (_, { repoPath, filePath }) => {
-      // -p for porcelain format might be better, but start with standard for simplicity or -t
       return runGit(`git blame "${filePath}"`, repoPath);
   });
 
-  // Config
   ipcMain.handle('git:getConfig', async (_, repoPath) => {
       return runGit('git config --list', repoPath);
   });
@@ -103,7 +111,6 @@ app.whenReady().then(() => {
       return runGit(`git config "${key}" "${value}"`, repoPath);
   });
 
-  // Remotes
   ipcMain.handle('git:getRemotes', async (_, repoPath) => {
       return runGit('git remote -v', repoPath);
   });
@@ -116,26 +123,6 @@ app.whenReady().then(() => {
       return runGit(`git remote remove "${name}"`, repoPath);
   });
 
-  // File System
-  ipcMain.handle('fs:appendFile', async (_, { path: filePath, content }) => {
-      return new Promise((resolve, reject) => {
-          fs.appendFile(filePath, content, (err) => {
-              if (err) reject(err);
-              else resolve();
-          });
-      });
-  });
-
-  ipcMain.handle('fs:writeFile', async (_, { path: filePath, content }) => {
-      return new Promise((resolve, reject) => {
-          fs.writeFile(filePath, content, (err) => {
-              if (err) reject(err);
-              else resolve();
-          });
-      });
-  });
-
-  // History & Undo
   ipcMain.handle('git:logFile', async (_, { repoPath, filePath, limit = 50 }) => {
       return runGit(`git log -n ${limit} --pretty=format:"%H|%an|%ad|%s" --date=iso -- "${filePath}"`, repoPath);
   });
@@ -145,16 +132,33 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('git:reset', async (_, { repoPath, target, mode = 'mixed' }) => {
-      // mode: soft, mixed, hard
       return runGit(`git reset --${mode} "${target}"`, repoPath);
   });
 
   ipcMain.handle('git:openDifftool', async (_, { repoPath, filePath }) => {
-      // -y to suppress prompt, & to run in background (but exec waits, which is okay)
-      // Actually, we usually want it to detach?
-      // For now, let's just run it. If it blocks, it blocks the promise, but maybe not the UI if handled correctly.
-      // Better: spawn it and don't wait? No, git difftool needs to run.
       return runGit(`git difftool -y "${filePath}"`, repoPath);
+  });
+
+  // --- File System IPC Handlers ---
+
+  ipcMain.handle('fs:appendFile', async (_, { path: filePath, content }) => {
+      const normalizedPath = path.normalize(filePath);
+      return new Promise((resolve, reject) => {
+          fs.appendFile(normalizedPath, content, (err) => {
+              if (err) reject(err);
+              else resolve();
+          });
+      });
+  });
+
+  ipcMain.handle('fs:writeFile', async (_, { path: filePath, content }) => {
+      const normalizedPath = path.normalize(filePath);
+      return new Promise((resolve, reject) => {
+          fs.writeFile(normalizedPath, content, (err) => {
+              if (err) reject(err);
+              else resolve();
+          });
+      });
   });
 
   startSidecar();
