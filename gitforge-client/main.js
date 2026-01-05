@@ -139,6 +139,12 @@ app.whenReady().then(() => {
       return runGit(`git difftool -y "${filePath}"`, repoPath);
   });
 
+  ipcMain.handle('git:restoreAll', async (_, repoPath) => {
+      // Discard tracked changes and clean untracked files
+      await runGit('git restore .', repoPath);
+      return runGit('git clean -fd', repoPath);
+  });
+
   // --- File System IPC Handlers ---
 
   ipcMain.handle('fs:appendFile', async (_, { path: filePath, content }) => {

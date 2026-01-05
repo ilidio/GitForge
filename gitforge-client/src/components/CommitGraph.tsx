@@ -15,14 +15,18 @@ interface CommitGraphProps {
   branches?: any[];
   onCommitClick?: (commit: any) => void;
   onAction?: (action: 'checkout' | 'merge' | 'cherrypick' | 'copy' | 'rebase', commit: any) => void;
+  theme?: 'light' | 'dark';
 }
 
 const COMMIT_HEIGHT = 50;
 const LANE_WIDTH = 24;
 const CIRCLE_RADIUS = 6;
-const COLORS = ['#0084ff', '#e6005c', '#e6e600', '#00e600', '#8c00e6', '#ff9900', '#00cccc', '#ff00cc'];
 
-function calculateGraph(commits: any[]) {
+const DARK_COLORS = ['#3b82f6', '#ec4899', '#eab308', '#22c55e', '#a855f7', '#f97316', '#06b6d4', '#d946ef'];
+const LIGHT_COLORS = ['#2563eb', '#db2777', '#ca8a04', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#c026d3'];
+
+function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
+    const colors = theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
     const sorted = [...commits].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     const commitLaneMap = new Map<string, number>();
     const lanes: (string | null)[] = [];
@@ -59,7 +63,7 @@ function calculateGraph(commits: any[]) {
 
     sorted.forEach((commit, rowIndex) => {
         const laneIndex = commitLaneMap.get(commit.id)!;
-        const color = COLORS[laneIndex % COLORS.length];
+        const color = colors[laneIndex % colors.length];
         activeRails.delete(laneIndex);
         const verticalRails: any[] = [];
         activeRails.forEach((rColor, rLane) => {
@@ -74,7 +78,7 @@ function calculateGraph(commits: any[]) {
             commit.parents.forEach((p: string) => {
                 const pLane = commitLaneMap.get(p);
                 if (pLane !== undefined) {
-                    const pColor = COLORS[pLane % COLORS.length];
+                    const pColor = colors[pLane % colors.length];
                     activeRails.set(pLane, pColor);
                 }
             });
@@ -96,10 +100,10 @@ function calculateGraph(commits: any[]) {
     return { rows, height: sorted.length * COMMIT_HEIGHT, nodeMap };
 }
 
-export default function CommitGraph({ commits, branches, onCommitClick, onAction }: CommitGraphProps) {
+export default function CommitGraph({ commits, branches, onCommitClick, onAction, theme = 'light' }: CommitGraphProps) {
   if (!commits || commits.length === 0) return null;
 
-  const { rows, height, nodeMap } = useMemo(() => calculateGraph(commits), [commits]);
+  const { rows, height, nodeMap } = useMemo(() => calculateGraph(commits, theme), [commits, theme]);
 
   return (
     <ScrollArea className="h-full w-full bg-background">

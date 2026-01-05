@@ -86,3 +86,8 @@ export async function openDifftool(repoPath: string, filePath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:openDifftool', { repoPath, filePath });
 }
+
+export async function restoreAll(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:restoreAll', repoPath);
+}

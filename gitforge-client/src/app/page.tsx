@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool } from '@/lib/electron';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool, restoreAll } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import FileTree from '@/components/FileTree';
@@ -22,7 +22,7 @@ import GitFlowDialog from '@/components/GitFlowDialog';
 import WorkspaceDialog from '@/components/WorkspaceDialog';
 import TemplateSelector from '@/components/TemplateSelector';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -190,6 +190,10 @@ export default function Home() {
   const [searchAuthor, setSearchAuthor] = useState('');
   const [searchDate, setSearchDate] = useState('');
 
+  // UI State
+  const [changesWidth, setChangesWidth] = useState(350);
+  const [isResizing, setIsResizing] = useState(false);
+
   // Commit State
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
@@ -198,6 +202,33 @@ export default function Home() {
   // Search State
   const [branchSearch, setBranchSearch] = useState('');
   const [historySearch, setHistorySearch] = useState('');
+
+  useEffect(() => {
+      const handleMouseMove = (e: MouseEvent) => {
+          if (!isResizing) return;
+          // Calculate new width based on mouse position relative to sidebar (fixed 256px)
+          const newWidth = e.clientX - 256; 
+          if (newWidth > 300 && newWidth < 800) {
+              setChangesWidth(newWidth);
+          }
+      };
+
+      const handleMouseUp = () => {
+          setIsResizing(false);
+          document.body.style.cursor = 'default';
+      };
+
+      if (isResizing) {
+          window.addEventListener('mousemove', handleMouseMove);
+          window.addEventListener('mouseup', handleMouseUp);
+          document.body.style.cursor = 'col-resize';
+      }
+
+      return () => {
+          window.removeEventListener('mousemove', handleMouseMove);
+          window.removeEventListener('mouseup', handleMouseUp);
+      };
+  }, [isResizing]);
 
   useEffect(() => {
     const saved = localStorage.getItem('recentRepos');
@@ -489,6 +520,19 @@ export default function Home() {
       setActionLoading(true);
       try {
           await openDifftool(repoPath, selectedFile);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleRestoreAll = async () => {
+      if (!confirm("Discard all uncommitted changes? This cannot be undone.")) return;
+      setActionLoading(true);
+      try {
+          await restoreAll(repoPath);
+          await loadRepo(historyLimit);
       } catch (err: any) {
           setError(err.message);
       } finally {
@@ -907,7 +951,10 @@ export default function Home() {
         {/* Content Area */}
         <div className="flex-1 flex overflow-hidden h-full">
           {/* Status Column */}
-          <div className="w-80 border-r flex flex-col bg-muted/5 relative h-full overflow-hidden">
+          <div 
+            style={{ width: changesWidth }} 
+            className="border-r flex flex-col bg-muted/5 relative h-full overflow-hidden flex-shrink-0"
+          >
             <div className="p-3 border-b font-medium bg-muted/50 flex justify-between items-center h-12 flex-shrink-0">
                 <span className="text-sm uppercase tracking-wider font-bold">
                     {viewMode === 'workdir' ? 'Changes' : 'Commit Details'}
@@ -948,6 +995,9 @@ export default function Home() {
                             } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
                         }} className="h-7 text-[10px]">
                             Unstage All
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={handleRestoreAll} className="h-7 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10">
+                            Discard All
                         </Button>
                     </div>
                 )}
@@ -1059,6 +1109,14 @@ export default function Home() {
                     </Button>
                 </div>
             )}
+          </div>
+
+          {/* Resize Handle */}
+          <div
+            className="w-1 cursor-col-resize hover:bg-primary/50 active:bg-primary transition-colors flex items-center justify-center -ml-0.5 z-10"
+            onMouseDown={() => setIsResizing(true)}
+          >
+             {/* Invisible wider grab area if needed, or visual indicator */}
           </div>
 
           {/* Center Area (Diff or Graph) */}
@@ -1193,6 +1251,7 @@ export default function Home() {
                                     branches={branches} 
                                     onCommitClick={handleCommitClick} 
                                     onAction={handleGraphAction} 
+                                    theme="dark"
                                 />
                             ) : (
                                 <div className="flex h-full items-center justify-center text-muted-foreground text-sm italic">
@@ -1200,8 +1259,8 @@ export default function Home() {
                                 </div>
                             )
                         ) : (
-                            <ScrollArea className="h-full w-full">
-                                <div className="p-6 text-slate-100">
+                            <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
+                                <div className="p-6">
                                     <InteractiveTerminalGraph 
                                         content={textGraph} 
                                         onCommitSelect={handleTerminalCommitClick} 
