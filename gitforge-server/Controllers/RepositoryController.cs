@@ -16,10 +16,12 @@ public class RepositoryController : ControllerBase
             using var repo = new Repository(repoPath);
             var status = repo.RetrieveStatus();
             
-            var files = status.Select(item => new GitFileStatus(
-                item.FilePath,
-                item.State.ToString()
-            )).ToList();
+            var files = status
+                .Where(item => !item.State.HasFlag(FileStatus.Ignored))
+                .Select(item => new GitFileStatus(
+                    item.FilePath,
+                    item.State.ToString()
+                )).ToList();
 
             return Ok(new GitRepoStatus(repo.Head.FriendlyName, files));
         }
