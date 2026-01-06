@@ -7,6 +7,7 @@ import { Dialog, DialogContent } from '@/components/ui/dialog';
 interface CommandPaletteProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    repoPath: string;
     actions: {
         fetch: () => void;
         pull: () => void;
@@ -14,8 +15,10 @@ interface CommandPaletteProps {
         commit: () => void;
         createBranch: () => void;
         openSettings: () => void;
+        openReflog: () => void;
+        openWorktrees: () => void;
+        runGc: () => void;
     };
-    repoPath: string;
 }
 
 export default function CommandPalette({ open, onOpenChange, actions, repoPath }: CommandPaletteProps) {

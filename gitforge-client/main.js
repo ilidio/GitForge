@@ -135,6 +135,10 @@ app.whenReady().then(() => {
       return runGit(`git reset --${mode} "${target}"`, repoPath);
   });
 
+  ipcMain.handle('git:checkout', async (_, { repoPath, target }) => {
+      return runGit(`git checkout "${target}"`, repoPath);
+  });
+
   ipcMain.handle('git:openDifftool', async (_, { repoPath, filePath }) => {
       return runGit(`git difftool -y "${filePath}"`, repoPath);
   });
@@ -189,6 +193,109 @@ app.whenReady().then(() => {
       // Discard tracked changes and clean untracked files
       await runGit('git restore .', repoPath);
       return runGit('git clean -fd', repoPath);
+  });
+
+  ipcMain.handle('git:clone', async (_, { url, destination }) => {
+      // git clone <url> <destination>
+      // We run this in the parent directory of destination, or just use the full command.
+      // runGit expects a cwd. For clone, we can run it in the parent dir of destination, 
+      // or just run it with no specific cwd if we provide full path.
+      // But runGit implementation uses exec(command, { cwd: normalizedPath }).
+      // So we need a valid cwd.
+      
+      const parentDir = path.dirname(destination);
+      const dirName = path.basename(destination);
+      
+      // Ensure parent directory exists
+      if (!fs.existsSync(parentDir)) {
+          throw new Error(`Parent directory ${parentDir} does not exist`);
+      }
+      
+      return runGit(`git clone "${url}" "${dirName}"`, parentDir);
+  });
+
+  ipcMain.handle('git:init', async (_, repoPath) => {
+      const normalizedPath = path.normalize(repoPath);
+      // Ensure directory exists
+      if (!fs.existsSync(normalizedPath)) {
+          fs.mkdirSync(normalizedPath, { recursive: true });
+      }
+      return runGit('git init', normalizedPath);
+  });
+
+  ipcMain.handle('git:diffFile', async (_, { repoPath, filePath, staged }) => {
+      // if staged, git diff --staged -- filePath
+      // else git diff -- filePath
+      const flag = staged ? '--staged' : '';
+      return runGit(`git diff ${flag} -- "${filePath}"`, repoPath);
+  });
+
+  ipcMain.handle('git:stashDrop', async (_, { repoPath, index }) => {
+      return runGit(`git stash drop stash@{${index}}`, repoPath);
+  });
+
+  ipcMain.handle('git:rm', async (_, { repoPath, filePath }) => {
+      return runGit(`git rm -f "${filePath}"`, repoPath);
+  });
+  
+  // Bisect
+  ipcMain.handle('git:bisectStart', async (_, { repoPath, bad, good }) => {
+      // bad is usually HEAD, good is older
+      // git bisect start <bad> <good>
+      return runGit(`git bisect start "${bad}" "${good}"`, repoPath);
+  });
+
+  ipcMain.handle('git:bisectReset', async (_, repoPath) => {
+      return runGit('git bisect reset', repoPath);
+  });
+
+  ipcMain.handle('git:bisectGood', async (_, repoPath) => {
+      return runGit('git bisect good', repoPath);
+  });
+
+  ipcMain.handle('git:bisectBad', async (_, repoPath) => {
+      return runGit('git bisect bad', repoPath);
+  });
+  
+  ipcMain.handle('git:revert', async (_, { repoPath, sha }) => {
+      // --no-edit to avoid launching editor
+      return runGit(`git revert --no-edit "${sha}"`, repoPath);
+  });
+
+  // Archive
+  ipcMain.handle('git:archive', async (_, { repoPath, ref, outputPath }) => {
+      return runGit(`git archive --format=zip --output="${outputPath}" "${ref}"`, repoPath);
+  });
+
+  // Worktree
+  ipcMain.handle('git:worktreeList', async (_, repoPath) => {
+      return runGit('git worktree list', repoPath);
+  });
+
+  ipcMain.handle('git:worktreeAdd', async (_, { repoPath, path: wtPath, branch }) => {
+      return runGit(`git worktree add "${wtPath}" "${branch}"`, repoPath);
+  });
+
+  ipcMain.handle('git:worktreeRemove', async (_, { repoPath, path: wtPath }) => {
+      return runGit(`git worktree remove "${wtPath}"`, repoPath);
+  });
+
+  // GC
+  ipcMain.handle('git:gc', async (_, repoPath) => {
+      return runGit('git gc', repoPath);
+  });
+
+  // MV
+  ipcMain.handle('git:mv', async (_, { repoPath, oldPath, newPath }) => {
+      return runGit(`git mv "${oldPath}" "${newPath}"`, repoPath);
+  });
+
+  ipcMain.handle('dialog:saveFile', async (_, { defaultPath }) => {
+      const { canceled, filePath } = await dialog.showSaveDialog({
+          defaultPath,
+          filters: [{ name: 'Zip Files', extensions: ['zip'] }]
+      });
+      return { canceled, filePath };
   });
 
   // --- File System IPC Handlers ---

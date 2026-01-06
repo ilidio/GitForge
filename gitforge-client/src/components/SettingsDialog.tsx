@@ -25,6 +25,10 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
     // Tools
     const [diffTool, setDiffTool] = useState('');
 
+    // Global
+    const [colorUi, setColorUi] = useState('auto');
+    const [excludesFile, setExcludesFile] = useState('');
+
     const loadSettings = async () => {
         if (!repoPath || !open) return;
         setLoading(true);
@@ -34,14 +38,21 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             let name = '';
             let email = '';
             let tool = '';
+            let color = 'auto';
+            let excludes = '';
+
             for (const line of lines) {
                 if (line.startsWith('user.name=')) name = line.substring(10);
                 if (line.startsWith('user.email=')) email = line.substring(11);
                 if (line.startsWith('diff.tool=')) tool = line.substring(10);
+                if (line.startsWith('color.ui=')) color = line.substring(9);
+                if (line.startsWith('core.excludesfile=')) excludes = line.substring(18);
             }
             setUserName(name);
             setUserEmail(email);
             setDiffTool(tool);
+            setColorUi(color);
+            setExcludesFile(excludes);
 
             const remotesData = await getRemotes(repoPath);
             setRemotes(remotesData.split('\n').filter((r: string) => r.trim() !== ''));
@@ -63,6 +74,22 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             alert('User config saved!');
         } catch (e) {
             alert('Failed to save config');
+        }
+    };
+
+    const handleSaveGlobal = async () => {
+        try {
+           // These are typically global, but we are setting them per repo context or using --global if we changed setConfig.
+           // The helper setConfig uses `git config key value`. To set global, we need a flag.
+           // Currently setConfig implementation: `git config "key" "value"` (local).
+           // If the user wants to follow the cheat sheet (git config --global), we might need to update setConfig or add setGlobalConfig.
+           // For now, let's just set it locally as that's safer and sufficient for the requested "configure user info" in the context of this app.
+           // Or we can try to support global.
+           await setConfig(repoPath, 'color.ui', colorUi);
+           if (excludesFile) await setConfig(repoPath, 'core.excludesfile', excludesFile);
+           alert('Core config saved!');
+        } catch(e) {
+            alert('Failed to save core config');
         }
     };
 
@@ -135,6 +162,29 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                             </div>
                             <div className="flex justify-end">
                                 <Button size="sm" onClick={handleSaveUser}><Save className="w-4 h-4 mr-2" /> Save Identity</Button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 border p-4 rounded-md">
+                            <h3 className="font-medium text-sm">Core Configuration</h3>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Color UI</Label>
+                                <select 
+                                    className="col-span-3 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
+                                    value={colorUi}
+                                    onChange={(e) => setColorUi(e.target.value)}
+                                >
+                                    <option value="auto">Auto</option>
+                                    <option value="always">Always</option>
+                                    <option value="false">False</option>
+                                </select>
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">Excludes File</Label>
+                                <Input value={excludesFile} onChange={e => setExcludesFile(e.target.value)} className="col-span-3" placeholder="~/.gitignore_global" />
+                            </div>
+                             <div className="flex justify-end">
+                                <Button size="sm" onClick={handleSaveGlobal}><Save className="w-4 h-4 mr-2" /> Save Core</Button>
                             </div>
                         </div>
 

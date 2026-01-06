@@ -82,6 +82,19 @@ export async function reset(repoPath: string, target: string, mode: 'soft' | 'mi
     return ipcRenderer.invoke('git:reset', { repoPath, target, mode });
 }
 
+export async function checkout(repoPath: string, target: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    // We can reuse the same command runner or add specific ipc if needed.
+    // For now, let's just run "git checkout <target>"
+    // But I don't have a generic "runGit" exposed to renderer.
+    // I need an IPC handler for checkout.
+    // Let's check main.js. There is 'repository/checkout' via API, but not IPC.
+    // But I can add one or use the existing 'git:reset' style.
+    // Let's check main.js... no 'git:checkout'.
+    // I'll add 'git:checkout' to main.js and then expose it here.
+    return ipcRenderer.invoke('git:checkout', { repoPath, target });
+}
+
 export async function openDifftool(repoPath: string, filePath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:openDifftool', { repoPath, filePath });
@@ -120,4 +133,86 @@ export async function grepHistory(repoPath: string, pattern: string) {
 export async function restoreAll(repoPath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:restoreAll', repoPath);
+}
+
+export async function cloneRepo(url: string, destination: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:clone', { url, destination });
+}
+
+export async function initRepo(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:init', repoPath);
+}
+
+export async function getDiffFile(repoPath: string, filePath: string, staged: boolean) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:diffFile', { repoPath, filePath, staged });
+}
+
+export async function dropStashElectron(repoPath: string, index: number) {
+    // We already have dropStash in api.ts calling the server, but let's use electron one if we prefer direct git
+    // Or just rename this to distinguish.
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:stashDrop', { repoPath, index });
+}
+
+export async function gitRm(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:rm', { repoPath, filePath });
+}
+
+export async function bisectStart(repoPath: string, bad: string, good: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:bisectStart', { repoPath, bad, good });
+}
+
+export async function bisectReset(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:bisectReset', repoPath);
+}
+
+export async function bisectGood(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:bisectGood', repoPath);
+}
+
+export async function bisectBad(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:bisectBad', repoPath);
+}
+
+export async function revertCommit(repoPath: string, sha: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:revert', { repoPath, sha });
+}
+
+export async function gitArchive(repoPath: string, ref: string, outputPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:archive', { repoPath, ref, outputPath });
+}
+
+export async function getWorktrees(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:worktreeList', repoPath);
+}
+
+export async function addWorktree(repoPath: string, path: string, branch: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:worktreeAdd', { repoPath, path, branch });
+}
+
+export async function removeWorktree(repoPath: string, path: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:worktreeRemove', { repoPath, path });
+}
+
+export async function gitGc(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:gc', repoPath);
+}
+
+export async function gitMv(repoPath: string, oldPath: string, newPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:mv', { repoPath, oldPath, newPath });
 }

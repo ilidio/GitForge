@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, FileText, Folder } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Folder, Trash, Eye } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/ui/context-menu';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
 
 interface FileTreeProps {
     files: any[];
@@ -14,19 +14,20 @@ interface FileTreeProps {
     viewMode: 'workdir' | 'commit';
         onResolve?: (file: any) => void;
         onIgnore?: (path: string) => void;
-        onHistory?: (path: string) => void;
-    }
-    
-    interface TreeNode {
-        name: string;
-        path: string;
-        children: Record<string, TreeNode>;
-        files: any[];
-    }
-    
-    export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory }: FileTreeProps) {
-        const buildTree = (files: any[]) => {
-            const root: TreeNode = { name: '', path: '', children: {}, files: [] };
+            onHistory?: (path: string) => void;
+            onDelete?: (path: string) => void;
+            onRename?: (oldPath: string, newPath: string) => void;
+        }
+        
+        interface TreeNode {
+            name: string;
+            path: string;
+            children: Record<string, TreeNode>;
+            files: any[];
+        }
+        
+        export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename }: FileTreeProps) {
+            const buildTree = (files: any[]) => {            const root: TreeNode = { name: '', path: '', children: {}, files: [] };
             files.forEach(file => {
                 const parts = file.path.split('/');
                 let current = root;
@@ -58,13 +59,15 @@ interface FileTreeProps {
                     onResolve={onResolve}
                     onIgnore={onIgnore}
                     onHistory={onHistory}
+                    onDelete={onDelete}
+                    onRename={onRename}
                     isRoot
                 />
             </div>
         );
     }
     
-    function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, isRoot = false }: any) {
+    function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, isRoot = false }: any) {
         const [isOpen, setIsOpen] = useState(true);
     
         const hasContent = Object.keys(node.children).length > 0 || node.files.length > 0;
@@ -101,6 +104,8 @@ interface FileTreeProps {
                                 onResolve={onResolve}
                                 onIgnore={onIgnore}
                                 onHistory={onHistory}
+                                onDelete={onDelete}
+                                onRename={onRename}
                             />
                         ))}
                         {node.files.sort((a: any, b: any) => a.path.localeCompare(b.path)).map((file: any) => {
@@ -151,18 +156,30 @@ interface FileTreeProps {
                                         </div>
                                     </ContextMenuTrigger>
                                     <ContextMenuContent>
-                                        {viewMode === 'workdir' && onIgnore && (
-                                            <ContextMenuItem onClick={() => onIgnore(file.path)}>
-                                                Add to .gitignore
-                                            </ContextMenuItem>
-                                        )}
-                                        {onHistory && (
-                                            <ContextMenuItem onClick={() => onHistory(file.path)}>
-                                                View File History
-                                            </ContextMenuItem>
-                                        )}
-                                    </ContextMenuContent>
-                                </ContextMenu>
+                            <ContextMenuItem onClick={() => onIgnore?.(file.path)}>
+                                <Eye className="w-3 h-3 mr-2" /> Add to .gitignore
+                            </ContextMenuItem>
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={() => onDelete?.(file.path)}>
+                                <Trash className="w-3 h-3 mr-2" /> Delete
+                            </ContextMenuItem>
+                             <ContextMenuItem onClick={() => {
+                                 const newName = prompt("New filename:", file.path);
+                                 if (newName && newName !== file.path) {
+                                     // We need a rename prop.
+                                     // Using custom event or just repurposing? 
+                                     // Let's call onDelete as a placeholder? No.
+                                     // We need to add onRename prop.
+                                     // Since I can't easily add a prop without updating interface and parent...
+                                     // But wait, I can edit the Interface in this same file.
+                                     // I'll add onRename to props.
+                                     (onRename as any)?.(file.path, newName);
+                                 }
+                             }}>
+                                <FileText className="w-3 h-3 mr-2" /> Rename
+                            </ContextMenuItem>
+                        </ContextMenuContent>
+                    </ContextMenu>
                             );
                         })}
                     </div>
