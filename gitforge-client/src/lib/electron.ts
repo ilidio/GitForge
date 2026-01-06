@@ -87,6 +87,11 @@ export async function openDifftool(repoPath: string, filePath: string) {
     return ipcRenderer.invoke('git:openDifftool', { repoPath, filePath });
 }
 
+export async function getCustomGraph(repoPath: string, command: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:getCustomGraph', { repoPath, command });
+}
+
 export async function grepHistory(repoPath: string, pattern: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:grep', { repoPath, pattern });

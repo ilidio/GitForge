@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool, restoreAll } from '@/lib/electron';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool, restoreAll, getCustomGraph } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import FileTree from '@/components/FileTree';
@@ -191,6 +191,29 @@ export default function Home() {
   // Help State
   const [isHelpOpen, setIsHelpOpen] = useState(false);
 
+  // Graph Views State
+  const defaultGraphViews = {
+    sourcetree: {
+      label: "SourceTree",
+      description: "Clean branch-focused view",
+      command: "git log --graph --all --oneline --decorate --pretty=format:\"%C(auto)%h %d %s\""
+    },
+    compact: {
+      label: "Compact",
+      command: "git log --oneline --graph"
+    },
+    detailed: {
+      label: "Detailed",
+      command: "git log --all --branches --tags --decorate --graph --pretty=format:\"%H|%an|%ad|%s\""
+    },
+    classic: {
+        label: "Git Log",
+        command: "git log --all --graph --decorate"
+    }
+  };
+  const [graphViews, setGraphViews] = useState<any>(defaultGraphViews);
+  const [activeGraphView, setActiveGraphView] = useState('sourcetree');
+
   // Recent Repositories
   const [recentRepos, setRecentRepos] = useState<string[]>([]);
   
@@ -308,18 +331,20 @@ export default function Home() {
     }
     
     try {
-      const [statusData, logData, branchData, textGraphData, stashData] = await Promise.all([
+      const [statusData, logData, branchData, stashData] = await Promise.all([
         getRepoStatus(path),
         getRepoLog(path, limit),
         getBranches(path),
-        getTextGraph(path),
         getStashes(path).catch(() => []) 
       ]);
       setStatus(statusData);
       setHistory(logData);
       setBranches(branchData);
-      setTextGraph(textGraphData.output);
       setStashes(stashData || []);
+
+      // Load Graph using Active Preset
+      const activeCmd = graphViews[activeGraphView]?.command || defaultGraphViews.sourcetree.command;
+      getCustomGraph(path, activeCmd).then(output => setTextGraph(output)).catch(console.error);
       
       // Load Tags via Electron IPC
       getTags(path).then(tagStr => {
@@ -338,6 +363,17 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  const handleGraphViewChange = (viewKey: string) => {
+      setActiveGraphView(viewKey);
+  };
+
+  useEffect(() => {
+      if (repoPath) {
+          const activeCmd = graphViews[activeGraphView]?.command || defaultGraphViews.sourcetree.command;
+          getCustomGraph(repoPath, activeCmd).then(output => setTextGraph(output)).catch(console.error);
+      }
+  }, [activeGraphView, repoPath]);
 
   const handleBrowse = async () => {
       // Use window.require to bypass the bundler and access Electron at runtime
@@ -1237,9 +1273,18 @@ export default function Home() {
                 <div className="flex-1 flex flex-col relative h-full overflow-hidden">
                     <div className="p-3 border-b font-medium bg-muted/50 flex justify-between items-center h-12 flex-shrink-0">
                         <span className="text-sm uppercase tracking-wider font-bold">History Graph</span>
-                        <div className="flex items-center gap-2">
-                                                        <div className="relative w-48 mr-2">
-                                                            <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
+                                                    <div className="flex items-center gap-2">
+                                                        <select 
+                                                            className="bg-background border rounded px-2 h-7 text-[10px] outline-none"
+                                                            value={activeGraphView}
+                                                            onChange={(e) => handleGraphViewChange(e.target.value)}
+                                                        >
+                                                            {Object.entries(graphViews).map(([key, v]: [string, any]) => (
+                                                                <option key={key} value={key}>{v.label}</option>
+                                                            ))}
+                                                        </select>
+                                                        <Separator orientation="vertical" className="h-4" />
+                                                        <div className="relative w-48 mr-2">                                                            <Search className="absolute left-2 top-2 h-3 w-3 text-muted-foreground" />
                                                             <Input 
                                                                 placeholder="Search history..." 
                                                                 className="pl-7 h-7 text-[10px] bg-background/50" 

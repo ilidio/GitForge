@@ -139,6 +139,12 @@ app.whenReady().then(() => {
       return runGit(`git difftool -y "${filePath}"`, repoPath);
   });
 
+  ipcMain.handle('git:getCustomGraph', async (_, { repoPath, command }) => {
+      // Ensure we use color=always for the terminal graph
+      const cmdWithColor = command.includes('--color') ? command : `${command} --color=always`;
+      return runGit(cmdWithColor, repoPath);
+  });
+
   ipcMain.handle('git:grep', async (_, { repoPath, pattern }) => {
       // Find commits where content matching pattern was changed
       return runGit(`git log -G "${pattern}" --pretty=format:"%H|%an|%ad|%s" --date=iso`, repoPath);
