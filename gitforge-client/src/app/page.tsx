@@ -21,8 +21,10 @@ import SidebarPRSection from '@/components/SidebarPRSection';
 import GitFlowDialog from '@/components/GitFlowDialog';
 import WorkspaceDialog from '@/components/WorkspaceDialog';
 import TemplateSelector from '@/components/TemplateSelector';
+import GrepSearchDialog from '@/components/GrepSearchDialog';
+import HelpDialog from '@/components/HelpDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -183,6 +185,12 @@ export default function Home() {
   const [workspaces, setWorkspaces] = useState<any[]>([]);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
 
+  // Grep Search State
+  const [isGrepSearchOpen, setIsGrepSearchOpen] = useState(false);
+
+  // Help State
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+
   // Recent Repositories
   const [recentRepos, setRecentRepos] = useState<string[]>([]);
   
@@ -257,6 +265,27 @@ export default function Home() {
   useEffect(() => {
       localStorage.setItem('theme', theme);
   }, [theme]);
+
+  // Keyboard Shortcuts Effect
+  useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+          if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes((e.target as any).tagName)) {
+              setIsHelpOpen(true);
+          }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Auto-Fetch Effect
+  useEffect(() => {
+      if (!repoPath) return;
+      const interval = setInterval(() => {
+          console.log("Auto-fetching...");
+          fetchRepo(repoPath).then(() => loadRepo(historyLimit)).catch(console.error);
+      }, 5 * 60 * 1000); // 5 minutes
+      return () => clearInterval(interval);
+  }, [repoPath, historyLimit]);
 
   const addToRecent = (path: string) => {
     if (!path) return;
@@ -338,7 +367,7 @@ export default function Home() {
       }
   };
 
-  const handleGraphAction = async (action: string, commit: any) => {
+  const handleGraphAction = async (action: string, commit: any, extra?: any) => {
       if (action === 'copy') {
           navigator.clipboard.writeText(commit.id);
           return;
@@ -348,6 +377,25 @@ export default function Home() {
       if (action === 'cherrypick') handleCherryPick(commit.id);
       if (action === 'rebase') handleStartRebase(commit.id);
       if (action === 'tag') handleCreateTag(commit.id);
+      if (action === 'drop-branch') {
+          const branchName = extra.name;
+          // Prompt for action
+          const choice = confirm(`Dropped branch "${branchName}" onto commit ${commit.id.substring(0,7)}. \n\nOK to Merge? \nCancel to Rebase? (Press ESC to abort)`);
+          if (choice === null) return;
+          if (choice) {
+              handleMerge(branchName);
+          } else {
+              // Note: our rebase UI assumes we rebase CURRENT onto TARGET.
+              // Here we might want to rebase DROPPED onto TARGET? 
+              // Usually drag-and-drop means "do something with this branch here".
+              handleStartRebase(commit.id); 
+          }
+      }
+  };
+
+  const handleBranchDragStart = (e: React.DragEvent, branch: any) => {
+      e.dataTransfer.setData('gitforge/branch', JSON.stringify(branch));
+      e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleTerminalCommitClick = (sha: string) => {
@@ -788,9 +836,11 @@ export default function Home() {
                   {branches.filter(b => !b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
                     <div 
                         key={b.name} 
-                        className={`text-sm px-2 py-1 rounded cursor-pointer truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`text-sm px-2 py-1 rounded cursor-grab active:cursor-grabbing truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-muted-foreground'}`}
                         title={b.name}
                         onClick={() => handleCheckout(b.name)}
+                        draggable="true"
+                        onDragStart={(e) => handleBranchDragStart(e, b)}
                     >
                       {b.isCurrentRepositoryHead && <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
                       <span className="truncate">{b.name}</span>
@@ -923,6 +973,9 @@ export default function Home() {
           <div className="flex-1" />
           
           <div className="flex items-center space-x-1">
+              <Button variant="outline" size="sm" onClick={() => setIsHelpOpen(true)} title="Help & Documentation">
+                  <HelpCircle className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="sm" onClick={handleMagicUndo} disabled={actionLoading} title="Magic Undo (Revert last action)">
                   <RotateCcw className="h-4 w-4 mr-1" /> Undo
               </Button>
@@ -1194,21 +1247,23 @@ export default function Home() {
                                                                 onChange={(e) => setHistorySearch(e.target.value)}
                                                             />
                                                         </div>
-                                                        <div className="flex gap-1">
-                                                            <Input 
-                                                                placeholder="Author" 
-                                                                className="w-24 h-7 text-[10px] bg-background/50"
-                                                                value={searchAuthor}
-                                                                onChange={(e) => setSearchAuthor(e.target.value)}
-                                                            />
-                                                            <Input 
-                                                                placeholder="Date (YYYY-MM-DD)" 
-                                                                className="w-28 h-7 text-[10px] bg-background/50"
-                                                                value={searchDate}
-                                                                onChange={(e) => setSearchDate(e.target.value)}
-                                                            />
-                                                        </div>
-                                                        <Button 
+                                                                                    <div className="flex gap-1">
+                                                                                        <Input 
+                                                                                            placeholder="Author" 
+                                                                                            className="w-24 h-7 text-[10px] bg-background/50"
+                                                                                            value={searchAuthor}
+                                                                                            onChange={(e) => setSearchAuthor(e.target.value)}
+                                                                                        />
+                                                                                        <Input 
+                                                                                            placeholder="Date (YYYY-MM-DD)" 
+                                                                                            className="w-28 h-7 text-[10px] bg-background/50"
+                                                                                            value={searchDate}
+                                                                                            onChange={(e) => setSearchDate(e.target.value)}
+                                                                                        />
+                                                                                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setIsGrepSearchOpen(true)} title="Deep History Search (Grep)">
+                                                                                            <Search className="h-3.5 w-3.5" />
+                                                                                        </Button>
+                                                                                    </div>                                                        <Button 
                                                             variant={graphMode === 'visual' ? 'secondary' : 'ghost'} 
                                                             size="sm" 
                                                             onClick={() => setGraphMode('visual')}                                title="Visual Graph"
@@ -1303,6 +1358,18 @@ export default function Home() {
         onOpenChange={setIsWorkspaceOpen} 
         workspaces={workspaces} 
         onSave={saveWorkspaces} 
+      />
+
+      <GrepSearchDialog 
+        open={isGrepSearchOpen} 
+        onOpenChange={setIsGrepSearchOpen} 
+        repoPath={repoPath} 
+        onCommitSelect={(c) => handleCommitClick(c)}
+      />
+
+      <HelpDialog 
+        open={isHelpOpen} 
+        onOpenChange={setIsHelpOpen} 
       />
 
       <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>

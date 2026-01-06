@@ -139,6 +139,11 @@ app.whenReady().then(() => {
       return runGit(`git difftool -y "${filePath}"`, repoPath);
   });
 
+  ipcMain.handle('git:grep', async (_, { repoPath, pattern }) => {
+      // Find commits where content matching pattern was changed
+      return runGit(`git log -G "${pattern}" --pretty=format:"%H|%an|%ad|%s" --date=iso`, repoPath);
+  });
+
   ipcMain.handle('git:restoreAll', async (_, repoPath) => {
       // Discard tracked changes and clean untracked files
       await runGit('git restore .', repoPath);

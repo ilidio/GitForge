@@ -1,7 +1,7 @@
 'use client';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,7 +14,7 @@ interface CommitGraphProps {
   commits: any[];
   branches?: any[];
   onCommitClick?: (commit: any) => void;
-  onAction?: (action: 'checkout' | 'merge' | 'cherrypick' | 'copy' | 'rebase', commit: any) => void;
+  onAction?: (action: 'checkout' | 'merge' | 'cherrypick' | 'copy' | 'rebase' | 'drop-branch', commit: any, extra?: any) => void;
   theme?: 'light' | 'dark';
 }
 
@@ -85,7 +85,7 @@ function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
         }
         rows.push({
             commit,
-            x: laneIndex * LANE_WIDTH + LANE_WIDTH / 2,
+            x: laneIndex * LANE_WIDTH +LANE_WIDTH / 2,
             y: rowIndex * COMMIT_HEIGHT + COMMIT_HEIGHT / 2,
             color: color,
             verticalRails,
@@ -101,9 +101,26 @@ function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
 }
 
 export default function CommitGraph({ commits, branches, onCommitClick, onAction, theme = 'light' }: CommitGraphProps) {
+  const [dragOverCommitId, setDragOverCommitId] = useState<string | null>(null);
+
   if (!commits || commits.length === 0) return null;
 
   const { rows, height, nodeMap } = useMemo(() => calculateGraph(commits, theme), [commits, theme]);
+
+  const handleDragOver = (e: React.DragEvent, commitId: string) => {
+      e.preventDefault();
+      setDragOverCommitId(commitId);
+  };
+
+  const handleDrop = (e: React.DragEvent, commit: any) => {
+      e.preventDefault();
+      setDragOverCommitId(null);
+      const data = e.dataTransfer.getData('gitforge/branch');
+      if (data) {
+          const branch = JSON.parse(data);
+          onAction?.('drop-branch', commit, branch);
+      }
+  };
 
   return (
     <ScrollArea className="h-full w-full bg-background">
@@ -159,7 +176,7 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
             <ContextMenu key={row.commit.id}>
                 <ContextMenuTrigger>
                     <div 
-                        className="absolute flex items-center group cursor-pointer hover:bg-muted/50 rounded p-1 -ml-2 select-none"
+                        className={`absolute flex items-center group cursor-pointer hover:bg-muted/50 rounded p-1 -ml-2 select-none ${dragOverCommitId === row.commit.id ? 'bg-primary/20 ring-2 ring-primary ring-inset' : ''}`}
                         style={{
                             top: row.y - 15, 
                             left: 0, 
@@ -167,6 +184,9 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
                             height: '30px'
                         }}
                         onClick={() => onCommitClick?.(row.commit)}
+                        onDragOver={(e) => handleDragOver(e, row.commit.id)}
+                        onDragLeave={() => setDragOverCommitId(null)}
+                        onDrop={(e) => handleDrop(e, row.commit)}
                     >
                         <div 
                             className="absolute rounded-full border-2 border-background z-10"
