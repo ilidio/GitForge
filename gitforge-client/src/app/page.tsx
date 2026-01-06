@@ -22,9 +22,12 @@ import GitFlowDialog from '@/components/GitFlowDialog';
 import WorkspaceDialog from '@/components/WorkspaceDialog';
 import TemplateSelector from '@/components/TemplateSelector';
 import GrepSearchDialog from '@/components/GrepSearchDialog';
+import GlobalGrepDialog from '@/components/GlobalGrepDialog';
+import RepoInsightsDialog from '@/components/RepoInsightsDialog';
+import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -190,6 +193,12 @@ export default function Home() {
 
   // Help State
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+
+  // Global Search State
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+
+  // Insights State
+  const [isInsightsOpen, setIsInsightsOpen] = useState(false);
 
   // Graph Views State
   const defaultGraphViews = {
@@ -829,11 +838,16 @@ export default function Home() {
             )}
             
             <div>
-                <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center">
+                <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center px-2">
                     <span>Workspaces</span>
-                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsWorkspaceOpen(true)}>
-                        <Folder className="h-3 w-3" />
-                    </Button>
+                    <div className="flex gap-1">
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsGlobalSearchOpen(true)} title="Global Workspace Search">
+                            <Globe className="h-3 w-3" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsWorkspaceOpen(true)}>
+                            <Folder className="h-3 w-3" />
+                        </Button>
+                    </div>
                 </h3>
                 <div className="space-y-1">
                     {workspaces.map(ws => (
@@ -884,6 +898,8 @@ export default function Home() {
                   ))}
               </div>
             </div>
+
+            <SubmoduleSection repoPath={repoPath} />
             
             {branches.some(b => b.isRemote) && (
                 <div>
@@ -1009,6 +1025,9 @@ export default function Home() {
           <div className="flex-1" />
           
           <div className="flex items-center space-x-1">
+              <Button variant="outline" size="sm" onClick={() => setIsInsightsOpen(true)} title="Repository Insights" disabled={!repoPath}>
+                  <BarChart3 className="h-4 w-4" />
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setIsHelpOpen(true)} title="Help & Documentation">
                   <HelpCircle className="h-4 w-4" />
               </Button>
@@ -1410,6 +1429,22 @@ export default function Home() {
         onOpenChange={setIsGrepSearchOpen} 
         repoPath={repoPath} 
         onCommitSelect={(c) => handleCommitClick(c)}
+      />
+
+      <GlobalGrepDialog 
+        open={isGlobalSearchOpen} 
+        onOpenChange={setIsGlobalSearchOpen} 
+        repoPaths={workspaces.flatMap(ws => ws.repos)} 
+        onCommitSelect={(path, commit) => {
+            setRepoPath(path);
+            handleCommitClick(commit);
+        }}
+      />
+
+      <RepoInsightsDialog 
+        open={isInsightsOpen} 
+        onOpenChange={setIsInsightsOpen} 
+        repoPath={repoPath} 
       />
 
       <HelpDialog 

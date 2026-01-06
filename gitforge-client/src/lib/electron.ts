@@ -92,6 +92,26 @@ export async function getCustomGraph(repoPath: string, command: string) {
     return ipcRenderer.invoke('git:getCustomGraph', { repoPath, command });
 }
 
+export async function globalGrep(repoPaths: string[], pattern: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:globalGrep', { repoPaths, pattern });
+}
+
+export async function getSubmodules(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:getSubmodules', repoPath);
+}
+
+export async function updateSubmodule(repoPath: string, name: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:updateSubmodule', { repoPath, name });
+}
+
+export async function getRepoStats(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:getRepoStats', repoPath);
+}
+
 export async function grepHistory(repoPath: string, pattern: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:grep', { repoPath, pattern });

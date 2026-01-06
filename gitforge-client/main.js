@@ -145,6 +145,41 @@ app.whenReady().then(() => {
       return runGit(cmdWithColor, repoPath);
   });
 
+  ipcMain.handle('git:globalGrep', async (_, { repoPaths, pattern }) => {
+      const results = [];
+      for (const repoPath of repoPaths) {
+          try {
+              const output = await runGit(`git log -G "${pattern}" --pretty=format:"%H|%an|%ad|%s" --date=iso`, repoPath);
+              if (output) {
+                  const parsed = output.split('\n').map(line => {
+                      const [id, author, date, message] = line.split('|');
+                      return { id, author, date, message, repoPath };
+                  });
+                  results.push(...parsed);
+              }
+          } catch (e) {
+              console.error(`Grep failed for ${repoPath}`, e);
+          }
+      }
+      return results;
+  });
+
+  ipcMain.handle('git:getSubmodules', async (_, repoPath) => {
+      return runGit('git submodule status', repoPath);
+  });
+
+  ipcMain.handle('git:updateSubmodule', async (_, { repoPath, name }) => {
+      return runGit(`git submodule update --init --recursive "${name}"`, repoPath);
+  });
+
+  ipcMain.handle('git:getRepoStats', async (_, repoPath) => {
+      const authors = await runGit('git shortlog -sn --all', repoPath);
+      const activity = await runGit('git log --date=short --pretty=format:%ad', repoPath);
+      const hotFiles = await runGit('git log --name-only --pretty=format: | sort | uniq -c | sort -nr | head -n 10', repoPath);
+      
+      return { authors, activity, hotFiles };
+  });
+
   ipcMain.handle('git:grep', async (_, { repoPath, pattern }) => {
       // Find commits where content matching pattern was changed
       return runGit(`git log -G "${pattern}" --pretty=format:"%H|%an|%ad|%s" --date=iso`, repoPath);
