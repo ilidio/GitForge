@@ -27,9 +27,49 @@ export async function stashPush(repoPath: string, message: string, files: string
     return ipcRenderer.invoke('git:stashPush', { repoPath, message, files });
 }
 
-export async function generateAICommitMessage(diff: string, apiKey: string, endpoint?: string, model?: string) {
+export async function generateAICommitMessage(diff: string, apiKey: string, endpoint?: string, model?: string, context?: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
-    return ipcRenderer.invoke('ai:generateCommitMessage', { diff, apiKey, endpoint, model });
+    return ipcRenderer.invoke('ai:generateCommitMessage', { diff, apiKey, endpoint, model, context });
+}
+
+export async function getDiffDetails(repoPath: string, filePath: string, staged: boolean) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:diffDetails', { repoPath, filePath, staged });
+}
+
+export async function applyPatch(repoPath: string, patch: string, cached = true, reverse = false) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:apply', { repoPath, patch, cached, reverse });
+}
+
+export async function lsFiles(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:ls-files', repoPath);
+}
+
+export async function fetchCommitStatus(owner: string, repo: string, sha: string, token: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('github:fetchStatus', { owner, repo, sha, token });
+}
+
+export function spawnTerminal(repoPath: string, cols: number, rows: number, onData: (data: string) => void) {
+    if (!ipcRenderer) return;
+    
+    // Remove previous listeners to avoid dupes if any
+    ipcRenderer.removeAllListeners('terminal:data');
+    ipcRenderer.removeAllListeners('terminal:exit');
+
+    ipcRenderer.send('terminal:spawn', { repoPath, cols, rows });
+    
+    ipcRenderer.on('terminal:data', (_, data: string) => {
+        onData(data);
+    });
+
+    return {
+        write: (data: string) => ipcRenderer.send('terminal:input', data),
+        resize: (cols: number, rows: number) => ipcRenderer.send('terminal:resize', { cols, rows }),
+        dispose: () => ipcRenderer.removeAllListeners('terminal:data')
+    };
 }
 
 export async function getTags(repoPath: string) {

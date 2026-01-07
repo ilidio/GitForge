@@ -54,6 +54,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: path.join(__dirname, 'public', 'logo.png'),
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -62,6 +63,12 @@ function createWindow() {
     titleBarStyle: isMac ? 'hiddenInset' : 'default',
     frame: true,
   });
+
+  if (process.platform === 'darwin') {
+      try {
+        app.dock.setIcon(path.join(__dirname, 'public', 'logo.png'));
+      } catch (e) { console.error("Failed to set dock icon", e); }
+  }
 
   const url = isDev
     ? 'http://localhost:3000'
@@ -101,15 +108,19 @@ app.whenReady().then(() => {
       return runGit(cmd, repoPath);
   });
 
-  ipcMain.handle('ai:generateCommitMessage', async (_, { diff, apiKey, endpoint, model }) => {
+  ipcMain.handle('ai:generateCommitMessage', async (_, { diff, apiKey, endpoint, model, context }) => {
       if (!diff) throw new Error("No diff provided");
       if (!apiKey) throw new Error("API Key is required");
       
       const apiEndpoint = endpoint || 'https://api.openai.com/v1/chat/completions';
       const apiModel = model || 'gpt-3.5-turbo';
 
-      const prompt = `You are a helpful assistant that writes semantic commit messages. 
-      Generate a concise commit message (Conventional Commits style) for the following git diff. 
+      let systemPrompt = "You are a helpful assistant that writes semantic commit messages.";
+      if (context) {
+          systemPrompt += `\nAdditional requirements:\n${context}`;
+      }
+
+      const prompt = `Generate a concise commit message (Conventional Commits style) for the following git diff. 
       Provide ONLY the commit message, no explanations.
       
       Diff:
@@ -125,7 +136,7 @@ app.whenReady().then(() => {
               body: JSON.stringify({
                   model: apiModel,
                   messages: [
-                      { role: "system", content: "You are a commit message generator." },
+                      { role: "system", content: systemPrompt },
                       { role: "user", content: prompt }
                   ],
                   temperature: 0.7
@@ -142,6 +153,114 @@ app.whenReady().then(() => {
       } catch (error) {
           console.error("AI Generation Failed:", error);
           throw error;
+      }
+  });
+
+  ipcMain.handle('git:diffDetails', async (_, { repoPath, filePath, staged }) => {
+      const patchCmd = staged ? `git diff --staged -- "${filePath}"` : `git diff -- "${filePath}"`;
+      const patch = await runGit(patchCmd, repoPath).catch(() => '');
+      
+      let original = '';
+      try {
+          original = await runGit(`git show HEAD:"${filePath}"`, repoPath);
+      } catch (e) {}
+
+      let modified = '';
+      if (staged) {
+          try {
+              modified = await runGit(`git show :"${filePath}"`, repoPath);
+          } catch (e) {}
+      } else {
+          try {
+              const normalizedPath = path.normalize(path.join(repoPath, filePath));
+              if (fs.existsSync(normalizedPath)) {
+                  modified = fs.readFileSync(normalizedPath, 'utf8');
+              }
+          } catch (e) {}
+      }
+
+      return { patch, original, modified };
+  });
+
+  ipcMain.handle('git:apply', async (_, { repoPath, patch, reverse = false, cached = false }) => {
+      // git apply [--reverse] [--cached] -
+      const args = ['apply', '--ignore-space-change', '--ignore-whitespace'];
+      if (reverse) args.push('--reverse');
+      if (cached) args.push('--cached');
+      args.push('-'); // Read from stdin
+
+      return new Promise((resolve, reject) => {
+          const child = spawn('git', args, { cwd: repoPath });
+          
+          let stderr = '';
+          child.stderr.on('data', d => stderr += d.toString());
+          
+          child.on('close', (code) => {
+              if (code === 0) resolve();
+              else reject(new Error(`git apply failed: ${stderr}`));
+          });
+          
+          child.stdin.write(patch);
+          child.stdin.end();
+      });
+  });
+
+  ipcMain.handle('git:ls-files', async (_, repoPath) => {
+      // List all tracked files + untracked files
+      // git ls-files -co --exclude-standard
+      return runGit('git ls-files -co --exclude-standard', repoPath);
+  });
+
+  // Simple terminal shell spawn
+  ipcMain.on('terminal:spawn', (event, { repoPath, cols, rows }) => {
+      const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
+      const pty = spawn(shell, [], { 
+          cwd: repoPath,
+          env: process.env,
+          cols,
+          rows
+      });
+
+      pty.stdout.on('data', (data) => {
+          event.reply('terminal:data', data.toString());
+      });
+
+      pty.stderr.on('data', (data) => {
+          event.reply('terminal:data', data.toString());
+      });
+
+      ipcMain.on('terminal:input', (_, data) => {
+          try {
+            pty.stdin.write(data);
+          } catch(e) {}
+      });
+      
+      ipcMain.on('terminal:resize', (_, { cols, rows }) => {
+          // simple spawn doesn't support resize strictly like pty, but that's fine for basic use
+      });
+
+      pty.on('exit', () => {
+          event.reply('terminal:exit');
+      });
+  });
+
+  ipcMain.handle('github:fetchStatus', async (_, { owner, repo, sha, token }) => {
+      // https://api.github.com/repos/OWNER/REPO/commits/REF/status
+      if (!token) return null;
+      try {
+          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${sha}/status`, {
+              headers: {
+                  'Authorization': `token ${token}`,
+                  'Accept': 'application/vnd.github.v3+json',
+                  'User-Agent': 'GitForge'
+              }
+          });
+          if (!response.ok) return null;
+          const data = await response.json();
+          // data.state can be 'pending', 'success', 'error', 'failure'
+          return data.state;
+      } catch (e) {
+          return null;
       }
   });
 

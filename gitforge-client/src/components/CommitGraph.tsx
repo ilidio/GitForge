@@ -2,7 +2,7 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMemo, useState } from 'react';
-import { Lock, ShieldAlert, ShieldQuestion } from 'lucide-react';
+import { Lock, ShieldAlert, ShieldQuestion, CheckCircle2, XCircle, CircleDashed } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -17,6 +17,7 @@ interface CommitGraphProps {
   onCommitClick?: (commit: any) => void;
   onAction?: (action: 'checkout' | 'merge' | 'cherrypick' | 'copy' | 'rebase' | 'drop-branch', commit: any, extra?: any) => void;
   theme?: 'light' | 'dark';
+  statuses?: Record<string, string>; // sha -> 'success' | 'failure' | 'pending'
 }
 
 const COMMIT_HEIGHT = 50;
@@ -31,6 +32,14 @@ function SignatureBadge({ status }: { status?: string }) {
     if (status === 'G') return <Lock className="w-3 h-3 text-green-500" title="Verified Signature" />;
     if (status === 'B') return <ShieldAlert className="w-3 h-3 text-red-500" title="Bad Signature" />;
     return <ShieldQuestion className="w-3 h-3 text-yellow-500" title="Unknown Signature" />;
+}
+
+function StatusBadge({ status }: { status?: string }) {
+    if (!status) return null;
+    if (status === 'success') return <CheckCircle2 className="w-3 h-3 text-green-500" title="Build Passed" />;
+    if (status === 'failure' || status === 'error') return <XCircle className="w-3 h-3 text-red-500" title="Build Failed" />;
+    if (status === 'pending') return <CircleDashed className="w-3 h-3 text-yellow-500 animate-spin" title="Build Pending" />;
+    return null;
 }
 
 function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
@@ -108,7 +117,7 @@ function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
     return { rows, height: sorted.length * COMMIT_HEIGHT, nodeMap };
 }
 
-export default function CommitGraph({ commits, branches, onCommitClick, onAction, theme = 'light' }: CommitGraphProps) {
+export default function CommitGraph({ commits, branches, onCommitClick, onAction, theme = 'light', statuses }: CommitGraphProps) {
   const [dragOverCommitId, setDragOverCommitId] = useState<string | null>(null);
 
   if (!commits || commits.length === 0) return null;
@@ -210,6 +219,7 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
                             <span className="font-mono text-muted-foreground w-16 flex-shrink-0">{row.commit.id.substring(0,7)}</span>
                             <div className="flex-1 truncate flex items-center gap-2 min-w-0">
                                 <SignatureBadge status={row.commit.signature} />
+                                <StatusBadge status={statuses?.[row.commit.id]} />
                                 {branches?.filter(b => b.commitId === row.commit.id || b.target === row.commit.id).map(b => (
                                     <span key={b.name} className={`px-1 rounded text-[10px] font-bold flex-shrink-0 ${b.isCurrentRepositoryHead ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}>
                                         {b.name}

@@ -1,9 +1,8 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getConfig, setConfig, getRemotes, addRemote, removeRemote } from '@/lib/electron';
@@ -34,6 +33,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
     const [aiProvider, setAiProvider] = useState('openai');
     const [aiApiKey, setAiApiKey] = useState('');
     const [aiModel, setAiModel] = useState('gpt-3.5-turbo');
+    const [aiContext, setAiContext] = useState('');
 
     const loadSettings = async () => {
         if (!repoPath || !open) return;
@@ -67,6 +67,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             setAiProvider(localStorage.getItem('ai_provider') || 'openai');
             setAiApiKey(localStorage.getItem('ai_api_key') || '');
             setAiModel(localStorage.getItem('ai_model') || 'gpt-3.5-turbo');
+            setAiContext(localStorage.getItem('ai_context') || '');
 
         } catch (e) {
             console.error(e);
@@ -103,6 +104,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
         localStorage.setItem('ai_provider', aiProvider);
         localStorage.setItem('ai_api_key', aiApiKey);
         localStorage.setItem('ai_model', aiModel);
+        localStorage.setItem('ai_context', aiContext);
         alert('AI settings saved!');
     };
 
@@ -259,6 +261,15 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                                         onChange={e => setAiModel(e.target.value)} 
                                         className="col-span-3" 
                                         placeholder="gpt-3.5-turbo" 
+                                    />
+                                </div>
+                                <div className="grid grid-cols-4 gap-4">
+                                    <Label className="text-right pt-2">Requirements</Label>
+                                    <Textarea 
+                                        value={aiContext} 
+                                        onChange={e => setAiContext(e.target.value)} 
+                                        className="col-span-3 h-24" 
+                                        placeholder="E.g., Always start with a Jira ID. Use present tense." 
                                     />
                                 </div>
                                 <div className="flex justify-end">

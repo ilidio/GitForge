@@ -8,10 +8,14 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getRepoStatus, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush } from '@/lib/electron';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
+import PatchView from '@/components/PatchView';
+import dynamic from 'next/dynamic';
+const TerminalPanel = dynamic(() => import('@/components/TerminalPanel'), { ssr: false });
+import FileSearchDialog from '@/components/FileSearchDialog';
 import FileTree from '@/components/FileTree';
 import RebaseDialog from '@/components/RebaseDialog';
 import BisectControls from '@/components/BisectControls';
@@ -33,7 +37,7 @@ import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -149,6 +153,7 @@ export default function Home() {
   const [history, setHistory] = useState<any[]>([]);
   const [textGraph, setTextGraph] = useState('');
   const [historyLimit, setHistoryLimit] = useState(50);
+  const [commitStatuses, setCommitStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -180,10 +185,12 @@ export default function Home() {
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [diffMode, setDiffMode] = useState<'side-by-side' | 'inline'>('side-by-side');
   const [useInternalDiff, setUseInternalDiff] = useState(true);
+  const [isPatchMode, setIsPatchMode] = useState(false);
 
   // Command Palette & Settings
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isFileSearchOpen, setIsFileSearchOpen] = useState(false);
   
   // Blame State
   const [isBlameOpen, setIsBlameOpen] = useState(false);
@@ -220,6 +227,9 @@ export default function Home() {
 
   // Insights State
   const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+
+  // Terminal State
+  const [isTerminalOpen, setIsTerminalOpen] = useState(false);
 
   // Graph Views State
   const defaultGraphViews = {
@@ -388,11 +398,46 @@ export default function Home() {
       }).catch(e => console.error("Tags not supported", e));
 
       addToRecent(path);
+      
+      // Fetch statuses
+      loadStatuses(path, logData);
     } catch (err: any) {
       setError(err.message || 'Failed to load repository');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadStatuses = async (path: string, commits: any[]) => {
+      try {
+          const config = await getConfig(path);
+          const lines = config.split('\n');
+          const tokenLine = lines.find((l: string) => l.startsWith('github.token='));
+          const remoteLine = lines.find((l: string) => l.startsWith('remote.origin.url='));
+          
+          if (!tokenLine || !remoteLine) return;
+          
+          const token = tokenLine.split('=')[1];
+          let cleanUrl = remoteLine.split('=')[1].replace('.git', '');
+          const parts = cleanUrl.split(/[/:]/);
+          const repo = parts.pop();
+          const owner = parts.pop();
+          
+          if (!owner || !repo || !token) return;
+
+          // Fetch for latest 10 commits to avoid rate limits
+          const recentCommits = commits.slice(0, 10);
+          const newStatuses: Record<string, string> = {};
+          
+          await Promise.all(recentCommits.map(async (c: any) => {
+              const status = await fetchCommitStatus(owner, repo, c.id, token);
+              if (status) newStatuses[c.id] = status;
+          }));
+          
+          setCommitStatuses(prev => ({ ...prev, ...newStatuses }));
+      } catch (e) {
+          console.error("Failed to load statuses", e);
+      }
   };
 
   const handleGraphViewChange = (viewKey: string) => {
@@ -500,64 +545,21 @@ export default function Home() {
 
   const handleFileClick = async (filePath: string) => {
     setSelectedFile(filePath);
+    setIsPatchMode(false);
     try {
         let diff;
         if (viewMode === 'workdir') {
-            // Check status of file
             const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
             const isStaged = fileStatus.includes('Index') || fileStatus === 'Staged';
             
-            // If file is Untracked, we might not get a diff unless we track it?
-            // git diff usually shows nothing for untracked.
-            // If it's staged, we want `git diff --staged`.
-            // If it's unstaged (modified), we want `git diff`.
+            const details = await getDiffDetails(repoPath, filePath, isStaged);
             
-            // We use the new electron-based diff which we control
-            const rawDiff = await getDiffFile(repoPath, filePath, isStaged);
-            
-            // We need to parse this raw diff into { originalContent, modifiedContent } for the DiffView.
-            // But wait, the previous `getFileDiff` returned JSON with { originalContent, modifiedContent }.
-            // My new `getDiffFile` returns raw git diff output (text).
-            // The `DiffView` component expects { original, modified } strings (content, not diff patch).
-            
-            // Ah, the `DiffView` component likely renders the CONTENT, not the PATCH?
-            // Let's check DiffView props.
-            // <DiffView original={...} modified={...} />
-            // Yes.
-            
-            // If I switch to `git diff` output, I need to parse it or use a Diff Viewer that accepts patches.
-            // The existing `getFileDiff` (API) likely returns the full file content for before/after.
-            
-            // If I cannot easily get file content from `git diff` output without parsing,
-            // I should revert to using `getFileDiff` (API) BUT make sure the API supports staged.
-            // Since I cannot change the API, I might be stuck.
-            
-            // Alternative: `git show HEAD:path` (original) and `cat path` (modified).
-            // For staged: `git show HEAD:path` (original) and `git show :path` (modified/staged).
-            
-            // Let's stick to `getFileDiff` for now if it works, but it might not support staged.
-            // If the user wants "essential features", seeing what they are committing is essential.
-            
-            // Let's try to assume `getFileDiff` does the right thing or ...
-            // Wait, I can implement `getFileContent` in main.js.
-            // `git show HEAD:file` -> base
-            // `git show :file` -> staged content
-            // `fs.readFile` -> working content
-            
-            // Let's implement `getFileDiff` in the client side properly.
-            
-            const isModified = fileStatus.includes('Modified');
-            const isRenamed = fileStatus.includes('Renamed');
-            
-            // NOTE: This logic is becoming complex for a "replace". 
-            // I will stick to existing `getFileDiff` for now to minimize breakage, 
-            // assuming the server handles it or returns *something*.
-            // If I really need "Diff Staged", I'll add a button in the diff view to toggle "Staged/Unstaged" view?
-            
-            diff = await getFileDiff(repoPath, filePath);
-            
-            // If I want to support "Diff Staged", I really need the content.
-            // Let's rely on the server for now.
+            diff = {
+                originalContent: details.original,
+                modifiedContent: details.modified,
+                patch: details.patch,
+                isStaged
+            };
         } else {
             diff = await getCommitFileDiff(repoPath, selectedCommit.id, filePath);
         }
@@ -628,8 +630,10 @@ export default function Home() {
               // Assuming user provides OpenAI compatible endpoint or we handle it in main.js
               // For now, main.js handles generic OpenAI format. 
           }
+          
+          const context = localStorage.getItem('ai_context') || '';
 
-          const message = await generateAICommitMessage(diff, apiKey, undefined, model);
+          const message = await generateAICommitMessage(diff, apiKey, undefined, model, context);
           if (message) setCommitMessage(message);
       } catch (e: any) {
           setError(e.message);
@@ -1027,7 +1031,10 @@ export default function Home() {
       {/* Sidebar */}
       <div className="w-64 border-r flex flex-col h-full overflow-hidden">
         <div className="p-4 font-bold text-xl tracking-tight flex-shrink-0 flex justify-between items-center">
-            <span>GitForge</span>
+            <div className="flex items-center gap-2">
+                <img src="/logo.svg" className="h-8 w-8 rounded-md bg-slate-900 p-1" alt="Logo" />
+                <span>GitForge</span>
+            </div>
             <div className="flex gap-1">
                 <Button variant="ghost" size="icon" className="h-6 w-6" title="Git Flow" onClick={() => setIsGitFlowOpen(true)}>
                     <GitBranch className="h-4 w-4" />
@@ -1675,6 +1682,16 @@ export default function Home() {
                          <div className="flex items-center gap-4 min-w-0">
                             <span className="font-mono font-bold truncate">{selectedFile}</span>
                             <div className="flex items-center bg-muted/50 rounded p-0.5">
+                                {viewMode === 'workdir' && (
+                                    <Button 
+                                        variant={isPatchMode ? 'secondary' : 'ghost'}
+                                        size="sm"
+                                        className="h-6 px-2 text-[10px]"
+                                        onClick={() => setIsPatchMode(!isPatchMode)}
+                                    >
+                                        <Layers className="h-3 w-3 mr-1" /> Patch
+                                    </Button>
+                                )}
                                 <Button 
                                     variant={diffMode === 'side-by-side' ? 'secondary' : 'ghost'}
                                     size="sm" 
@@ -1715,32 +1732,43 @@ export default function Home() {
                          </div>
                      </div>
                      <div className="flex-1 p-2 overflow-hidden">
-                        {diffData.modifiedContent.includes('<<<<<<<') && diffData.modifiedContent.includes('=======') && diffData.modifiedContent.includes('>>>>>>>') ? (
-                            <MergeConflictView 
-                                filePath={selectedFile} 
-                                content={diffData.modifiedContent} 
-                                repoPath={repoPath}
-                                onResolve={() => {
-                                    // Refresh status and re-select to update view
-                                    loadRepo(historyLimit);
-                                    handleFileClick(selectedFile);
+                        {isPatchMode && diffData.patch ? (
+                            <PatchView 
+                                diff={diffData.patch} 
+                                repoPath={repoPath} 
+                                onStage={() => {
+                                    handleFileClick(selectedFile); // Reload
+                                    loadRepo(historyLimit); // Refresh status
                                 }}
+                                isStaged={diffData.isStaged}
                             />
                         ) : (
-                            useInternalDiff ? (
-                                <InternalDiffView 
-                                    original={diffData.originalContent} 
-                                    modified={diffData.modifiedContent} 
-                                    renderSideBySide={diffMode === 'side-by-side'}
+                            diffData.modifiedContent?.includes('<<<<<<<') && diffData.modifiedContent?.includes('=======') && diffData.modifiedContent?.includes('>>>>>>>') ? (
+                                <MergeConflictView 
+                                    filePath={selectedFile} 
+                                    content={diffData.modifiedContent} 
+                                    repoPath={repoPath}
+                                    onResolve={() => {
+                                        loadRepo(historyLimit);
+                                        handleFileClick(selectedFile);
+                                    }}
                                 />
                             ) : (
-                                <DiffView 
-                                    original={diffData.originalContent} 
-                                    modified={diffData.modifiedContent} 
-                                    language={getLanguageFromPath(selectedFile)}
-                                    theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
-                                    renderSideBySide={diffMode === 'side-by-side'}
-                                />
+                                useInternalDiff ? (
+                                    <InternalDiffView 
+                                        original={diffData.originalContent} 
+                                        modified={diffData.modifiedContent} 
+                                        renderSideBySide={diffMode === 'side-by-side'}
+                                    />
+                                ) : (
+                                    <DiffView 
+                                        original={diffData.originalContent} 
+                                        modified={diffData.modifiedContent} 
+                                        language={getLanguageFromPath(selectedFile)}
+                                        theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
+                                        renderSideBySide={diffMode === 'side-by-side'}
+                                    />
+                                )
                             )
                         )}
                      </div>
@@ -1828,6 +1856,7 @@ export default function Home() {
                                     onCommitClick={handleCommitClick} 
                                     onAction={handleGraphAction} 
                                     theme="dark"
+                                    statuses={commitStatuses}
                                 />
                             ) : (
                                 <div className="flex h-full items-center justify-center text-muted-foreground text-sm italic">
@@ -1847,6 +1876,10 @@ export default function Home() {
                         )}
                     </div>
                 </div>
+             )}
+             
+             {isTerminalOpen && (
+                 <TerminalPanel repoPath={repoPath} onClose={() => setIsTerminalOpen(false)} />
              )}
           </div>
         </div>
@@ -1963,6 +1996,15 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
+      <FileSearchDialog 
+        open={isFileSearchOpen} 
+        onOpenChange={setIsFileSearchOpen} 
+        repoPath={repoPath} 
+        onSelect={(path) => {
+            handleFileHistory(path);
+        }} 
+      />
+
       <CommandPalette  
         open={isCommandOpen} 
         onOpenChange={setIsCommandOpen}
@@ -1980,6 +2022,8 @@ export default function Home() {
             openReflog: () => setIsReflogOpen(true),
             openWorktrees: () => setIsWorktreeOpen(true),
             runGc: handleGc,
+            openFileSearch: () => setIsFileSearchOpen(true),
+            toggleTerminal: () => setIsTerminalOpen(!isTerminalOpen),
         }}
       />
       <SettingsDialog 
@@ -1995,6 +2039,14 @@ export default function Home() {
                   <Terminal className="h-3 w-3" />
                   <span>{repoPath || 'No repository open'}</span>
               </div>
+              <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-6 px-2 text-[10px] hover:bg-primary-foreground/10 text-primary-foreground" 
+                  onClick={() => setIsTerminalOpen(!isTerminalOpen)}
+              >
+                  <Terminal className="h-3 w-3 mr-1" /> Terminal
+              </Button>
               {branches.find(b => b.isCurrentRepositoryHead) && (
                   <div className="flex items-center gap-1 font-bold">
                       <GitGraphIcon className="h-3 w-3" />
