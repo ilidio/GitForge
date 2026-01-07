@@ -270,6 +270,7 @@ export default function Home() {
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [amend, setAmend] = useState(false);
+  const [pushOnCommit, setPushOnCommit] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   // Search State
@@ -651,6 +652,9 @@ function isImage(path: string) {
           await commitChanges(repoPath, commitMessage, "GitForge User", "user@gitforge.local", amend);
           setCommitMessage('');
           setAmend(false);
+          if (pushOnCommit) {
+              await pushRepo(repoPath);
+          }
           await loadRepo(historyLimit);
       } catch (err: any) {
           setError(err.message);
@@ -1665,6 +1669,15 @@ function isImage(path: string) {
                             />
                             <label htmlFor="amend" className="text-[10px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 Amend
+                            </label>
+                            <Separator orientation="vertical" className="h-4 mx-1" />
+                            <Checkbox 
+                                id="pushOnCommit" 
+                                checked={pushOnCommit} 
+                                onCheckedChange={(checked) => setPushOnCommit(!!checked)} 
+                            />
+                            <label htmlFor="pushOnCommit" className="text-[10px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                Push
                             </label>
                         </div>
                         <div className="flex gap-1">
