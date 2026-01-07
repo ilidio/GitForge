@@ -1,13 +1,16 @@
 
 import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save } from 'lucide-react';
+import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save, History } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface CommandPaletteProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     repoPath: string;
+    hasHistory: boolean;
+    hasRemotes: boolean;
+    hasStagedChanges: boolean;
     actions: {
         fetch: () => void;
         pull: () => void;
@@ -21,7 +24,7 @@ interface CommandPaletteProps {
     };
 }
 
-export default function CommandPalette({ open, onOpenChange, actions, repoPath }: CommandPaletteProps) {
+export default function CommandPalette({ open, onOpenChange, actions, repoPath, hasHistory, hasRemotes, hasStagedChanges }: CommandPaletteProps) {
     
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -58,19 +61,19 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath }
         <Command.Empty className="py-6 text-center text-sm">No results found.</Command.Empty>
         
         <Command.Group heading="Repository Actions">
-            <Command.Item onSelect={() => run(actions.fetch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+            <Command.Item disabled={!repoPath || !hasRemotes} onSelect={() => run(actions.fetch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <RefreshCw className="mr-2 h-4 w-4" />
                 <span>Fetch</span>
             </Command.Item>
-            <Command.Item onSelect={() => run(actions.pull)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+            <Command.Item disabled={!repoPath || !hasRemotes} onSelect={() => run(actions.pull)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <ArrowDown className="mr-2 h-4 w-4" />
                 <span>Pull</span>
             </Command.Item>
-            <Command.Item onSelect={() => run(actions.push)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+            <Command.Item disabled={!repoPath || !hasRemotes} onSelect={() => run(actions.push)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <ArrowUp className="mr-2 h-4 w-4" />
                 <span>Push</span>
             </Command.Item>
-            <Command.Item onSelect={() => run(actions.commit)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+            <Command.Item disabled={!repoPath || !hasStagedChanges} onSelect={() => run(actions.commit)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <Save className="mr-2 h-4 w-4" />
                 <span>Commit Changes</span>
                 <span className="ml-auto text-xs tracking-widest text-muted-foreground">CMD+Enter</span>
@@ -78,9 +81,17 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath }
         </Command.Group>
 
         <Command.Group heading="Branch & Tags">
-            <Command.Item onSelect={() => run(actions.createBranch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+            <Command.Item disabled={!repoPath || !hasHistory} onSelect={() => run(actions.createBranch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <GitBranch className="mr-2 h-4 w-4" />
                 <span>Create New Branch...</span>
+            </Command.Item>
+            <Command.Item disabled={!repoPath} onSelect={() => run(actions.openReflog)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                <History className="mr-2 h-4 w-4" />
+                <span>View Reflog</span>
+            </Command.Item>
+            <Command.Item disabled={!repoPath} onSelect={() => run(actions.openWorktrees)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                <GitBranch className="mr-2 h-4 w-4" />
+                <span>Manage Worktrees</span>
             </Command.Item>
         </Command.Group>
 
@@ -88,6 +99,10 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath }
             <Command.Item onSelect={() => run(actions.openSettings)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Settings...</span>
+            </Command.Item>
+            <Command.Item disabled={!repoPath} onSelect={() => run(actions.runGc)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                <span>Optimize Repository (GC)</span>
             </Command.Item>
         </Command.Group>
       </Command.List>

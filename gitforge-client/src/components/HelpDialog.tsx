@@ -9,7 +9,8 @@ import {
     GitBranch, GitCommitVertical, Search, Zap, 
     Settings, ShieldAlert, History, MousePointer2, 
     Terminal, FileCode, Archive, Layout, Command, 
-    RotateCcw, Github, Info, ExternalLink
+    RotateCcw, Github, Info, ExternalLink, Folder, Trash,
+    BarChart3, Globe, Sparkles, Lock, AlertCircle
 } from 'lucide-react';
 
 interface HelpDialogProps {
@@ -81,13 +82,22 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                 <TabsContent value="basics" className="space-y-16 mt-0">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <Layout className="h-5 w-5 text-primary" /> Multi-Repo Management
+                                            <Layout className="h-5 w-5 text-primary" /> Getting Started
                                         </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                            GitForge provides a high-density sidebar for managing dozens of repositories. 
-                                            Group them into <strong>Workspaces</strong> using the folder icon to stay organized. 
-                                            The central divider is a <strong>resizable handle</strong>—drag it to expand your file list or your commit graph.
-                                        </p>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><ExternalLink className="h-4 w-4" /> Clone & Init</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Retrieve remote repositories via URL with <strong>Clone</strong>, or transform any local folder into a Git project with <strong>Init</strong>.
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><Folder className="h-4 w-4" /> Workspaces</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Organize dozens of repositories into <strong>Workspaces</strong>. Group projects by client or category to keep your sidebar clean and focused.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </section>
 
                                     <section className="space-y-6 border-t pt-12">
@@ -96,8 +106,12 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                         </h3>
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
-                                                <div className="text-sm font-bold mb-2">Message Templates</div>
-                                                <p className="text-xs text-muted-foreground">Save standard prefixes like "feat:" or "fix:" to maintain a clean history. Access them via the file icon in the commit box.</p>
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2">
+                                                    <Sparkles className="h-4 w-4 text-purple-500" /> AI Assistant
+                                                </div>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Click the <strong>Sparkles Button</strong> to generate a semantic commit message automatically using AI (OpenAI or Gemini). Configure your API Key in Settings &gt; AI.
+                                                </p>
                                             </div>
                                             <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
                                                 <div className="text-sm font-bold mb-2">Amend & Soft Undo</div>
@@ -108,11 +122,11 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
 
                                     <section className="space-y-4 border-t pt-12">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <Archive className="h-5 w-5 text-primary" /> Stash Inspector
+                                            <Archive className="h-5 w-5 text-primary" /> Stash Management
                                         </h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">
-                                            Click any stash in the sidebar to open the <strong>Stash Inspector</strong>. 
-                                            This treats the stash as a virtual commit, allowing you to browse its file changes and diffs without applying it to your tree.
+                                            Temporarily save uncommitted changes. <strong>Right-click</strong> a stash to <strong>Pop</strong> or <strong>Drop</strong> it. 
+                                            You can also stash specific files by right-clicking them in the file tree and selecting <strong>Stash This File</strong>.
                                         </p>
                                     </section>
                                 </TabsContent>
@@ -123,59 +137,95 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                             <Terminal className="h-5 w-5 text-primary" /> Graph Visualizations
                                         </h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">
-                                            The <strong>History Graph</strong> is locked to a dark theme for optimal contrast. 
-                                            Toggle the "Terminal" button to switch to an ASCII-style graph if you prefer a classic low-level look.
+                                            The <strong>History Graph</strong> supports multiple views: SourceTree, Compact, and Detailed. 
+                                            Toggle the "Terminal" button to switch to an ASCII-style graph for a classic CLI experience.
                                         </p>
+                                        <div className="p-4 bg-muted/10 rounded-lg border flex gap-4 items-center">
+                                            <Lock className="h-4 w-4 text-green-500" />
+                                            <div className="text-xs text-muted-foreground">
+                                                <strong>Commit Signatures:</strong> Look for lock icons in the graph. 
+                                                <span className="text-green-500 mx-1">Green</span> means verified GPG/SSH signature, 
+                                                <span className="text-red-500 mx-1">Red</span> means invalid, and 
+                                                <span className="text-yellow-500 mx-1">Yellow</span> means unknown key.
+                                            </div>
+                                        </div>
                                     </section>
 
                                     <section className="space-y-6 border-t pt-12">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <Search className="h-5 w-5 text-primary" /> Advanced Search
+                                            <Search className="h-5 w-5 text-primary" /> Search & Analysis
                                         </h3>
                                         <div className="space-y-4">
-                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
-                                                <div className="text-sm font-bold mb-2">Deep Content Search (Grep)</div>
-                                                <p className="text-xs text-muted-foreground">The magnifying glass icon triggers a content search across all commits. It finds every time a specific string was added or removed in history.</p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                    <div className="text-sm font-bold mb-1 flex items-center gap-2"><Search className="h-4 w-4 text-primary" /> Deep Grep</div>
+                                                    <p className="text-xs text-muted-foreground leading-relaxed">Find every instance where a string was added or removed across the entire repository history.</p>
+                                                </div>
+                                                <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                    <div className="text-sm font-bold mb-1 flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Workspace Search</div>
+                                                    <p className="text-xs text-muted-foreground leading-relaxed">Search for commits across <strong>multiple repositories</strong> simultaneously using the Globe icon in the sidebar.</p>
+                                                </div>
                                             </div>
-                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
-                                                <div className="text-sm font-bold mb-2">Metadata Filters</div>
-                                                <p className="text-xs text-muted-foreground">Filter by Author, Date, or ID directly in the graph header to isolate specific workstreams in seconds.</p>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10 flex gap-4 items-start">
+                                                <div className="p-2 bg-primary/10 rounded-lg"><BarChart3 className="h-4 w-4 text-primary" /></div>
+                                                <div>
+                                                    <div className="text-sm font-bold mb-1">Repository Insights</div>
+                                                    <p className="text-xs text-muted-foreground leading-relaxed">
+                                                        Click the chart icon in the top bar to visualize your project's health. View <strong>Author Leaderboards</strong>, <strong>Activity Heatmaps</strong>, and identify <strong>Hot Files</strong> that change most often.
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
                                     </section>
 
                                     <section className="space-y-4 border-t pt-12">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <MousePointer2 className="h-5 w-5 text-primary" /> Drag-and-Drop Gestures
+                                            <MousePointer2 className="h-5 w-5 text-primary" /> Context Actions
                                         </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                            <strong>Drag any local branch</strong> from the sidebar and <strong>drop it onto a commit</strong> in the graph. 
-                                            GitForge will prompt you to Merge, Rebase, or Cherry-pick that branch onto the target instantly.
-                                        </p>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-4 bg-muted/10 rounded-lg border">
+                                                <div className="text-xs font-bold mb-1 uppercase opacity-50">Branching</div>
+                                                <p className="text-xs text-muted-foreground">Checkout, Merge, Cherry-pick, and Tag directly from any commit.</p>
+                                            </div>
+                                            <div className="p-4 bg-muted/10 rounded-lg border">
+                                                <div className="text-xs font-bold mb-1 uppercase opacity-50">Rewriting</div>
+                                                <p className="text-xs text-muted-foreground">Revert commits or perform Soft/Mixed/Hard resets to any point in time.</p>
+                                            </div>
+                                            <div className="p-4 bg-muted/10 rounded-lg border col-span-2">
+                                                <div className="text-xs font-bold mb-1 uppercase opacity-50 flex items-center gap-2"><Archive className="h-3 w-3" /> Exporting</div>
+                                                <p className="text-xs text-muted-foreground">Right-click a commit and select <strong>Export as Zip</strong> to create a clean snapshot of your project for sharing or releases.</p>
+                                            </div>
+                                        </div>
                                     </section>
                                 </TabsContent>
 
                                 <TabsContent value="diff" className="space-y-16 mt-0">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <FileCode className="h-5 w-5 text-primary" /> Code Review
+                                            <FileCode className="h-5 w-5 text-primary" /> Internal Diff & Blame
                                         </h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">
-                                            Powered by Monaco, the diff viewer supports Side-by-Side and Inline modes. 
-                                            Click <strong>Blame</strong> to see line-by-line annotations, or <strong>Open</strong> to launch an external tool like KDiff3 or VS Code.
+                                            GitForge features a <strong>custom, high-performance diff engine</strong> built from scratch. 
+                                            It is extremely lightweight and handles massive files without lag. 
+                                            Toggle between <strong>Internal</strong> and <strong>Monaco</strong> modes in the diff toolbar to suit your preference.
+                                        </p>
+                                        <p className="text-sm text-muted-foreground leading-relaxed mt-2">
+                                            Click <strong>Blame</strong> to view an enhanced table view of line-by-line history, including commit hash, author, date, and commit message summary.
                                         </p>
                                     </section>
 
                                     <section className="space-y-4 border-t pt-12">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <ShieldAlert className="h-5 w-5 text-yellow-500" /> Visual Conflict Resolution
+                                            <ShieldAlert className="h-5 w-5 text-yellow-500" /> Conflict Resolution
                                         </h3>
                                         <div className="p-6 bg-yellow-500/5 border border-yellow-500/20 rounded-2xl">
-                                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                                When a merge results in conflicts, GitForge provides a visual resolution tool. 
-                                                Choose between "Current", "Incoming", or "Both" changes for each block. 
-                                                Once resolved, hit <strong>Save & Resolve</strong> to automatically clean and stage the file.
+                                            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                                                Visual conflict markers help you pick changes line-by-line. Once resolved, the file is automatically staged.
                                             </p>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="text-xs font-mono p-2 bg-muted/30 rounded border"><Trash className="h-3 w-3 inline mr-1" /> git rm / git mv</div>
+                                                <div className="text-xs font-mono p-2 bg-muted/30 rounded border"><Settings className="h-3 w-3 inline mr-1" /> Stage / Unstage All</div>
+                                            </div>
                                         </div>
                                     </section>
                                 </TabsContent>
@@ -183,32 +233,74 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                 <TabsContent value="advanced" className="space-y-16 mt-0">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <Zap className="h-5 w-5 text-primary" /> Git Flow Integration
+                                            <Zap className="h-5 w-5 text-primary" /> Power Workflows
                                         </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                            Initialize Git Flow in your repository to enable strict branch naming conventions. 
-                                            Use the specialized dashboard to start new features, releases, or critical hotfixes following the standard model.
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2">Git Bisect</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Hunt down bugs by marking commits as <strong>Good</strong> or <strong>Bad</strong>. 
+                                                    GitForge manages the checkout and logic until the first bad commit is isolated.
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2">Worktrees</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Check out multiple branches simultaneously in separate folders using <strong>git worktree</strong>. 
+                                                    Perfect for multi-tasking without stashing.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-4 border-t pt-12">
+                                        <h3 className="text-xl font-bold flex items-center gap-3">
+                                            <ShieldAlert className="h-5 w-5 text-primary" /> Advanced Integration
+                                        </h3>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><GitBranch className="h-4 w-4" /> Git Flow</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Standardize your release cycle. Initialize Git Flow to manage Features, Releases, and Hotfixes with automated branch naming and merging logic.
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><Settings className="h-4 w-4" /> Submodules</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    View and update embedded repositories. The <strong>Submodule Section</strong> in the sidebar tracks status and lets you sync dependencies with one click.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    <section className="space-y-4 border-t pt-12">
+                                        <h3 className="text-xl font-bold flex items-center gap-3">
+                                            <History className="h-5 w-5 text-primary" /> Reflog & Maintenance
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                                            Open the <strong>Reflog Viewer</strong> via the Command Palette to recover lost commits or undo any operation. 
+                                            Use <strong>Optimize Repository (GC)</strong> to run garbage collection and prune loose objects.
                                         </p>
                                     </section>
 
                                     <section className="space-y-4 border-t pt-12">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <RotateCcw className="h-5 w-5 text-primary" /> Magic Undo (Reflog)
+                                            <Github className="h-5 w-5 text-primary" /> GitHub Integration
                                         </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                            The <strong>Magic Undo</strong> button in the top bar scans your Git <strong>reflog</strong>. 
-                                            It can undo almost any operation—including hard resets and deleted branches—by warping the repository back to its state before your last action.
-                                        </p>
-                                    </section>
-
-                                    <section className="space-y-4 border-t pt-12">
-                                        <h3 className="text-xl font-bold flex items-center gap-3">
-                                            <Github className="h-5 w-5 text-primary" /> Pull Request Integration
-                                        </h3>
-                                        <p className="text-sm text-muted-foreground leading-relaxed">
-                                            Browse open PRs in the sidebar. 
-                                            Click the PR icon to <strong>fetch and checkout</strong> the branch for local review instantly.
-                                        </p>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2">Pull Requests</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Browse open PRs directly from the sidebar. Fetch PR metadata automatically and <strong>checkout PR branches</strong> for local review.
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><AlertCircle className="h-4 w-4" /> Issues</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    View open issues assigned to the repository in the new <strong>Issues Section</strong>. Click to open directly in your browser.
+                                                </p>
+                                            </div>
+                                        </div>
                                     </section>
                                 </TabsContent>
 

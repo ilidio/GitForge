@@ -84,6 +84,67 @@ app.whenReady().then(() => {
 
   // --- Git IPC Handlers ---
 
+  ipcMain.handle('git:log', async (_, { repoPath, count = 50 }) => {
+      // Added %G? for GPG signature status: G=Good, B=Bad, U=Unknown, X=Expired, Y=ExpiredKey, R=RevokedKey, E=CantCheck, N=None
+      return runGit(`git log -n ${count} --pretty=format:"%H|%an|%ad|%s|%G?" --date=iso`, repoPath);
+  });
+
+  ipcMain.handle('git:stashPush', async (_, { repoPath, message, files }) => {
+      // git stash push -m "message" -- file1 file2
+      let cmd = 'git stash push';
+      if (message) cmd += ` -m "${message}"`;
+      if (files && files.length > 0) {
+          // Quote files
+          const fileList = files.map(f => `"${f}"`).join(' ');
+          cmd += ` -- ${fileList}`;
+      }
+      return runGit(cmd, repoPath);
+  });
+
+  ipcMain.handle('ai:generateCommitMessage', async (_, { diff, apiKey, endpoint, model }) => {
+      if (!diff) throw new Error("No diff provided");
+      if (!apiKey) throw new Error("API Key is required");
+      
+      const apiEndpoint = endpoint || 'https://api.openai.com/v1/chat/completions';
+      const apiModel = model || 'gpt-3.5-turbo';
+
+      const prompt = `You are a helpful assistant that writes semantic commit messages. 
+      Generate a concise commit message (Conventional Commits style) for the following git diff. 
+      Provide ONLY the commit message, no explanations.
+      
+      Diff:
+      ${diff.substring(0, 3000)}`; // Truncate to avoid huge context
+
+      try {
+          const response = await fetch(apiEndpoint, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                  model: apiModel,
+                  messages: [
+                      { role: "system", content: "You are a commit message generator." },
+                      { role: "user", content: prompt }
+                  ],
+                  temperature: 0.7
+              })
+          });
+
+          if (!response.ok) {
+              const err = await response.text();
+              throw new Error(`AI API Error: ${err}`);
+          }
+
+          const data = await response.json();
+          return data.choices[0]?.message?.content?.trim();
+      } catch (error) {
+          console.error("AI Generation Failed:", error);
+          throw error;
+      }
+  });
+
   ipcMain.handle('git:getTags', async (_, repoPath) => {
       return runGit('git tag -n', repoPath);
   });
@@ -101,6 +162,10 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:blame', async (_, { repoPath, filePath }) => {
       return runGit(`git blame "${filePath}"`, repoPath);
+  });
+
+  ipcMain.handle('git:blamePorcelain', async (_, { repoPath, filePath }) => {
+      return runGit(`git blame --line-porcelain "${filePath}"`, repoPath);
   });
 
   ipcMain.handle('git:getConfig', async (_, repoPath) => {

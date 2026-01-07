@@ -7,8 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { getRepoStatus, getRepoLog, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv } from '@/lib/electron';
+import { getRepoStatus, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
@@ -22,6 +22,7 @@ import SettingsDialog from '@/components/SettingsDialog';
 import FileHistoryDialog from '@/components/FileHistoryDialog';
 import MergeConflictView from '@/components/MergeConflictView';
 import SidebarPRSection from '@/components/SidebarPRSection';
+import SidebarIssuesSection from '@/components/SidebarIssuesSection';
 import GitFlowDialog from '@/components/GitFlowDialog';
 import WorkspaceDialog from '@/components/WorkspaceDialog';
 import TemplateSelector from '@/components/TemplateSelector';
@@ -32,7 +33,7 @@ import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -187,6 +188,7 @@ export default function Home() {
   // Blame State
   const [isBlameOpen, setIsBlameOpen] = useState(false);
   const [blameContent, setBlameContent] = useState('');
+  const [blameData, setBlameData] = useState<any[]>([]);
 
   // File History State
   const [isFileHistoryOpen, setIsFileHistoryOpen] = useState(false);
@@ -257,6 +259,7 @@ export default function Home() {
   const [commitMessage, setCommitMessage] = useState('');
   const [isCommitting, setIsCommitting] = useState(false);
   const [amend, setAmend] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
 
   // Search State
   const [branchSearch, setBranchSearch] = useState('');
@@ -361,7 +364,7 @@ export default function Home() {
     try {
       const [statusData, logData, branchData, stashData] = await Promise.all([
         getRepoStatus(path),
-        getRepoLog(path, limit),
+        getLog(path, limit),
         getBranches(path),
         getStashes(path).catch(() => []) 
       ]);
@@ -600,6 +603,56 @@ export default function Home() {
       }
   };
 
+  const handleAICommit = async () => {
+      const apiKey = localStorage.getItem('ai_api_key');
+      if (!apiKey) {
+          alert('Please configure your AI API Key in Settings.');
+          setIsSettingsOpen(true);
+          return;
+      }
+      
+      setIsGeneratingAI(true);
+      try {
+          // Get diff of staged files
+          const diff = await getDiffFile(repoPath, '.', true);
+          if (!diff || diff.length < 10) {
+              alert('Stage some changes first to generate a commit message.');
+              setIsGeneratingAI(false);
+              return;
+          }
+          
+          const provider = localStorage.getItem('ai_provider') || 'openai';
+          const model = localStorage.getItem('ai_model') || 'gpt-3.5-turbo';
+          let endpoint = 'https://api.openai.com/v1/chat/completions';
+          if (provider === 'gemini') {
+              // Assuming user provides OpenAI compatible endpoint or we handle it in main.js
+              // For now, main.js handles generic OpenAI format. 
+          }
+
+          const message = await generateAICommitMessage(diff, apiKey, undefined, model);
+          if (message) setCommitMessage(message);
+      } catch (e: any) {
+          setError(e.message);
+      } finally {
+          setIsGeneratingAI(false);
+      }
+  };
+
+  const handleStashFile = async (path: string) => {
+      const msg = prompt(`Stash message for ${path}:`, `Stash ${path}`);
+      if (msg === null) return;
+      
+      setActionLoading(true);
+      try {
+          await stashPush(repoPath, msg, [path]);
+          await loadRepo(historyLimit);
+      } catch(e: any) {
+          setError(e.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
   // Actions
   const handleCheckout = async (target: string) => {
       setActionLoading(true);
@@ -694,8 +747,29 @@ export default function Home() {
   const handleBlame = async () => {
       if (!selectedFile) return;
       try {
-          const content = await getBlame(repoPath, selectedFile);
-          setBlameContent(content);
+          const content = await getBlamePorcelain(repoPath, selectedFile);
+          const lines = content.split('\n');
+          const parsedData = [];
+          let currentCommit: any = {};
+          
+          for (let i = 0; i < lines.length; i++) {
+              const line = lines[i];
+              if (line.match(/^[0-9a-f]{40} \d+ \d+/)) {
+                  const [sha, originalLine, finalLine] = line.split(' ');
+                  currentCommit = { sha, originalLine, finalLine };
+              } else if (line.startsWith('author ')) {
+                  currentCommit.author = line.substring(7);
+              } else if (line.startsWith('author-time ')) {
+                  currentCommit.time = parseInt(line.substring(12));
+              } else if (line.startsWith('summary ')) {
+                  currentCommit.summary = line.substring(8);
+              } else if (line.startsWith('\t')) {
+                  currentCommit.content = line.substring(1);
+                  parsedData.push(currentCommit);
+                  currentCommit = {};
+              }
+          }
+          setBlameData(parsedData);
           setIsBlameOpen(true);
       } catch (err: any) {
           setError(err.message);
@@ -963,7 +1037,13 @@ export default function Home() {
                 </Button>
                 <Dialog open={isCreateBranchOpen} onOpenChange={setIsCreateBranchOpen}>
                     <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Create Branch">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-6 w-6" 
+                            title="Create Branch" 
+                            disabled={!repoPath || history.length === 0}
+                        >
                             <Plus className="h-4 w-4" />
                         </Button>
                     </DialogTrigger>
@@ -1185,6 +1265,7 @@ export default function Home() {
             )}
             
             <SidebarPRSection repoPath={repoPath} onCheckout={handleCheckout} />
+            <SidebarIssuesSection repoPath={repoPath} />
 
             <Separator className="my-4" />
             
@@ -1214,17 +1295,17 @@ export default function Home() {
                 onKeyDown={(e) => e.key === 'Enter' && loadRepo(50)}
                 className="flex-1 text-sm"
               />
-              <Button variant="secondary" onClick={handleBrowse} title="Browse Folder">
+              <Button variant="secondary" onClick={handleBrowse} title="Browse Folder" disabled={loading}>
                   Browse...
               </Button>
-              <Button variant="secondary" onClick={() => setIsCloneOpen(true)} title="Clone Repository">
+              <Button variant="secondary" onClick={() => setIsCloneOpen(true)} title="Clone Repository" disabled={loading}>
                   <DownloadCloud className="h-4 w-4 mr-2" /> Clone
               </Button>
-              <Button variant="secondary" onClick={handleInit} title="Initialize Repository">
+              <Button variant="secondary" onClick={handleInit} title="Initialize Repository" disabled={loading}>
                   <Plus className="h-4 w-4 mr-2" /> Init
               </Button>
           </div>
-          <Button size="sm" onClick={() => loadRepo(50)} disabled={loading}>
+          <Button size="sm" onClick={() => loadRepo(50)} disabled={loading || !repoPath}>
             {loading ? 'Loading...' : 'Open Repo'}
           </Button>
           
@@ -1237,19 +1318,43 @@ export default function Home() {
               <Button variant="outline" size="sm" onClick={() => setIsHelpOpen(true)} title="Help & Documentation">
                   <HelpCircle className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={handleMagicUndo} disabled={actionLoading} title="Magic Undo (Revert last action)">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleMagicUndo} 
+                disabled={actionLoading || history.length === 0} 
+                title={history.length === 0 ? "No history to undo" : "Magic Undo (Revert last action)"}
+              >
                   <RotateCcw className="h-4 w-4 mr-1" /> Undo
               </Button>
               <Button variant="outline" size="sm" onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} title="Toggle Theme">
                   {theme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
               </Button>
-              <Button variant="outline" size="sm" onClick={handleFetch} disabled={actionLoading} title="Fetch">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleFetch} 
+                disabled={actionLoading || !branches.some(b => b.isRemote)} 
+                title="Fetch"
+              >
                   <RefreshCw className={`h-4 w-4 ${actionLoading ? 'animate-spin' : ''}`} />
               </Button>
-              <Button variant="outline" size="sm" onClick={handlePull} disabled={actionLoading} title="Pull">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handlePull} 
+                disabled={actionLoading || !branches.some(b => b.isRemote)} 
+                title="Pull"
+              >
                   <ArrowDown className="h-4 w-4 mr-1" /> Pull
               </Button>
-              <Button variant="outline" size="sm" onClick={handlePush} disabled={actionLoading} title="Push">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handlePush} 
+                disabled={actionLoading || !branches.some(b => b.isRemote)} 
+                title="Push"
+              >
                   <ArrowUp className="h-4 w-4 mr-1" /> Push
               </Button>
           </div>
@@ -1279,40 +1384,53 @@ export default function Home() {
                     </Button>
                 ) : (
                     <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => loadRepo(historyLimit)} title="Refresh Status">
+                        <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-7 w-7" 
+                            onClick={() => loadRepo(historyLimit)} 
+                            title="Refresh Status"
+                            disabled={!repoPath || loading}
+                        >
                             <RefreshCw className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={async () => {
-                            if (!status?.files) return;
-                            setActionLoading(true);
-                            try {
-                                for (const file of status.files) {
-                                    if (!file.status.includes("Index") && file.status !== "Staged") {
-                                        await stageFile(repoPath, file.path);
+                        {status?.files?.some((f: any) => !f.status.includes("Index") && f.status !== "Staged") && (
+                            <Button variant="ghost" size="sm" onClick={async () => {
+                                if (!status?.files) return;
+                                setActionLoading(true);
+                                try {
+                                    for (const file of status.files) {
+                                        if (!file.status.includes("Index") && file.status !== "Staged") {
+                                            await stageFile(repoPath, file.path);
+                                        }
                                     }
-                                }
-                                await loadRepo(historyLimit);
-                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                        }} className="h-7 text-[10px]">
-                            Stage All
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={async () => {
-                            if (!status?.files) return;
-                            setActionLoading(true);
-                            try {
-                                for (const file of status.files) {
-                                    if (file.status.includes("Index") || file.status === "Staged") {
-                                        await unstageFile(repoPath, file.path);
+                                    await loadRepo(historyLimit);
+                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                            }} className="h-7 text-[10px]">
+                                Stage All
+                            </Button>
+                        )}
+                        {status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged") && (
+                            <Button variant="ghost" size="sm" onClick={async () => {
+                                if (!status?.files) return;
+                                setActionLoading(true);
+                                try {
+                                    for (const file of status.files) {
+                                        if (file.status.includes("Index") || file.status === "Staged") {
+                                            await unstageFile(repoPath, file.path);
+                                        }
                                     }
-                                }
-                                await loadRepo(historyLimit);
-                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                        }} className="h-7 text-[10px]">
-                            Unstage All
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={handleRestoreAll} className="h-7 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10">
-                            Discard All
-                        </Button>
+                                    await loadRepo(historyLimit);
+                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                            }} className="h-7 text-[10px]">
+                                Unstage All
+                            </Button>
+                        )}
+                        {status?.files?.length > 0 && (
+                            <Button variant="ghost" size="sm" onClick={handleRestoreAll} className="h-7 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10">
+                                Discard All
+                            </Button>
+                        )}
                     </div>
                 )}
             </div>
@@ -1455,6 +1573,7 @@ export default function Home() {
                             await loadRepo(historyLimit);
                         } catch(e: any) { setError(e.message); }
                     }}
+                    onStash={handleStashFile}
                 />
                 
                 {((viewMode === 'workdir' ? !status?.files?.length : !commitFiles.length)) && repoPath && !loading && (
@@ -1477,13 +1596,25 @@ export default function Home() {
                 <div className="p-3 border-t bg-background space-y-2">
                     <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center space-x-2">
-                            <Checkbox id="amend" checked={amend} onCheckedChange={(checked) => setAmend(!!checked)} />
+                            <Checkbox 
+                                id="amend" 
+                                checked={amend} 
+                                onCheckedChange={(checked) => setAmend(!!checked)} 
+                                disabled={history.length === 0}
+                            />
                             <label htmlFor="amend" className="text-[10px] font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 Amend
                             </label>
                         </div>
                         <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleUndoCommit} title="Undo Last Commit (Soft Reset)">
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6" 
+                                onClick={handleUndoCommit} 
+                                title="Undo Last Commit (Soft Reset)"
+                                disabled={history.length === 0}
+                            >
                                 <Undo className="h-3.5 w-3.5" />
                             </Button>
                             {status?.files?.length > 0 && (
@@ -1493,9 +1624,19 @@ export default function Home() {
                             )}
                             {stashes.length > 0 && (
                                 <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => handleStashPop(0)} title="Pop Latest Stash">
-                                    <ArrowUp className="h-3.5 w-3.5 mr-1" /> Pop
+                                    <Archive className="h-3.5 w-3.5 mr-1" /> Pop
                                 </Button>
                             )}
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className={`h-6 w-6 ${isGeneratingAI ? 'animate-pulse text-primary' : ''}`}
+                                onClick={handleAICommit}
+                                title="Generate Commit Message with AI"
+                                disabled={isGeneratingAI}
+                            >
+                                <Sparkles className="h-3.5 w-3.5" />
+                            </Button>
                             <TemplateSelector onSelect={(txt) => setCommitMessage(txt)} />
                         </div>
                     </div>
@@ -1504,8 +1645,14 @@ export default function Home() {
                         value={commitMessage}
                         onChange={(e) => setCommitMessage(e.target.value)}
                         className="text-xs resize-none h-20 shadow-none border-muted"
+                        disabled={!amend && !status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged")}
                     />
-                    <Button size="sm" className="w-full" onClick={handleCommit} disabled={isCommitting || !commitMessage}>
+                    <Button 
+                        size="sm" 
+                        className="w-full" 
+                        onClick={handleCommit} 
+                        disabled={isCommitting || !commitMessage || (!amend && !status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged"))}
+                    >
                         {isCommitting ? 'Committing...' : (amend ? 'Amend Commit' : 'Commit')}
                     </Button>
                 </div>
@@ -1785,12 +1932,33 @@ export default function Home() {
       />
 
       <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>
-        <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+        <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
             <DialogHeader>
                 <DialogTitle>Blame: {selectedFile}</DialogTitle>
             </DialogHeader>
-            <ScrollArea className="flex-1 border rounded p-2 bg-muted/50 font-mono text-xs whitespace-pre overflow-auto">
-                {blameContent}
+            <ScrollArea className="flex-1 border rounded bg-background font-mono text-xs overflow-auto">
+                <table className="w-full border-collapse">
+                    <thead className="bg-muted sticky top-0 z-10">
+                        <tr>
+                            <th className="p-2 text-left w-20">SHA</th>
+                            <th className="p-2 text-left w-32">Author</th>
+                            <th className="p-2 text-left w-24">Date</th>
+                            <th className="p-2 text-left">Message</th>
+                            <th className="p-2 text-left border-l">Content</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {blameData.map((row, i) => (
+                            <tr key={i} className="hover:bg-muted/50 border-b border-muted/20">
+                                <td className="p-1 pl-2 text-muted-foreground select-all">{row.sha ? row.sha.substring(0,7) : ''}</td>
+                                <td className="p-1">{row.author}</td>
+                                <td className="p-1 text-muted-foreground">{row.time ? new Date(row.time * 1000).toLocaleDateString() : ''}</td>
+                                <td className="p-1 truncate max-w-xs text-muted-foreground" title={row.summary}>{row.summary}</td>
+                                <td className="p-1 border-l pl-2 whitespace-pre text-foreground">{row.content}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
             </ScrollArea>
         </DialogContent>
       </Dialog>
@@ -1799,6 +1967,9 @@ export default function Home() {
         open={isCommandOpen} 
         onOpenChange={setIsCommandOpen}
         repoPath={repoPath}
+        hasHistory={history.length > 0}
+        hasRemotes={branches.some(b => b.isRemote)}
+        hasStagedChanges={!!status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged")}
         actions={{
             fetch: handleFetch,
             pull: handlePull,

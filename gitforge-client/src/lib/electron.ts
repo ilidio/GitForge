@@ -12,6 +12,26 @@ if (typeof window !== 'undefined' && (window as any).require) {
     }
 }
 
+export async function getLog(repoPath: string, count = 50) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    const output = await ipcRenderer.invoke('git:log', { repoPath, count });
+    // Parse the output here to match the expected format
+    return output.split('\n').filter(Boolean).map((line: string) => {
+        const [id, author, timestamp, message, signature] = line.split('|');
+        return { id, author, timestamp, message, signature };
+    });
+}
+
+export async function stashPush(repoPath: string, message: string, files: string[] = []) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:stashPush', { repoPath, message, files });
+}
+
+export async function generateAICommitMessage(diff: string, apiKey: string, endpoint?: string, model?: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('ai:generateCommitMessage', { diff, apiKey, endpoint, model });
+}
+
 export async function getTags(repoPath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:getTags', repoPath);
@@ -30,6 +50,11 @@ export async function deleteTag(repoPath: string, name: string) {
 export async function getBlame(repoPath: string, filePath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:blame', { repoPath, filePath });
+}
+
+export async function getBlamePorcelain(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:blamePorcelain', { repoPath, filePath });
 }
 
 export async function getConfig(repoPath: string) {

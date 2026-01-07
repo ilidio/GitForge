@@ -2,6 +2,7 @@
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useMemo, useState } from 'react';
+import { Lock, ShieldAlert, ShieldQuestion } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -24,6 +25,13 @@ const CIRCLE_RADIUS = 6;
 
 const DARK_COLORS = ['#3b82f6', '#ec4899', '#eab308', '#22c55e', '#a855f7', '#f97316', '#06b6d4', '#d946ef'];
 const LIGHT_COLORS = ['#2563eb', '#db2777', '#ca8a04', '#16a34a', '#9333ea', '#ea580c', '#0891b2', '#c026d3'];
+
+function SignatureBadge({ status }: { status?: string }) {
+    if (!status || status === 'N') return null;
+    if (status === 'G') return <Lock className="w-3 h-3 text-green-500" title="Verified Signature" />;
+    if (status === 'B') return <ShieldAlert className="w-3 h-3 text-red-500" title="Bad Signature" />;
+    return <ShieldQuestion className="w-3 h-3 text-yellow-500" title="Unknown Signature" />;
+}
 
 function calculateGraph(commits: any[], theme: 'light' | 'dark' = 'light') {
     const colors = theme === 'dark' ? DARK_COLORS : LIGHT_COLORS;
@@ -201,6 +209,7 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
                         <div className="ml-[140px] flex-1 flex justify-between gap-4 text-xs pr-4 min-w-0 items-center">
                             <span className="font-mono text-muted-foreground w-16 flex-shrink-0">{row.commit.id.substring(0,7)}</span>
                             <div className="flex-1 truncate flex items-center gap-2 min-w-0">
+                                <SignatureBadge status={row.commit.signature} />
                                 {branches?.filter(b => b.commitId === row.commit.id || b.target === row.commit.id).map(b => (
                                     <span key={b.name} className={`px-1 rounded text-[10px] font-bold flex-shrink-0 ${b.isCurrentRepositoryHead ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground border'}`}>
                                         {b.name}
