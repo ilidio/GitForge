@@ -286,3 +286,37 @@ export async function gitMv(repoPath: string, oldPath: string, newPath: string) 
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:mv', { repoPath, oldPath, newPath });
 }
+
+export async function getRepoStatus(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    const output = await ipcRenderer.invoke('git:status', repoPath);
+    // Parse output
+    // XY PATH
+    // ?? untracked
+    const files = output.split('\n').filter(Boolean).map((line: string) => {
+        const statusChar = line.substring(0, 2);
+        const path = line.substring(3);
+        
+        let fullStatus = "";
+        if (statusChar.includes('?')) fullStatus = "Untracked";
+        else {
+             if (statusChar[0] !== ' ') fullStatus += "Staged";
+             if (statusChar[1] !== ' ') fullStatus += (fullStatus ? " & " : "") + "Unstaged";
+        }
+        
+        if (!fullStatus) fullStatus = "Modified"; // Fallback
+
+        return { path, status: fullStatus, rawStatus: statusChar };
+    });
+    return { files };
+}
+
+export async function getBranches(repoPath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    const output = await ipcRenderer.invoke('git:branches', repoPath);
+    // SHA|Name|*
+    return output.split('\n').filter(Boolean).map((line: string) => {
+        const [commitId, name, head] = line.split('|');
+        return { name, commitId, current: head === '*' };
+    });
+}

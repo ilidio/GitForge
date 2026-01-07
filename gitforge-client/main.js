@@ -535,6 +535,17 @@ app.whenReady().then(() => {
       return runGit('git init', normalizedPath);
   });
 
+  ipcMain.handle('git:status', async (_, repoPath) => {
+      // Porcelain v1 for easy parsing
+      // XY PATH
+      return runGit('git status --porcelain=v1', repoPath);
+  });
+
+  ipcMain.handle('git:branches', async (_, repoPath) => {
+      // SHA|RefName|HEAD(*)
+      return runGit('git for-each-ref --sort=-committerdate --format="%(objectname)|%(refname:short)|%(HEAD)" refs/heads refs/remotes', repoPath);
+  });
+
   ipcMain.handle('git:diffFile', async (_, { repoPath, filePath, staged }) => {
       // if staged, git diff --staged -- filePath
       // else git diff -- filePath
