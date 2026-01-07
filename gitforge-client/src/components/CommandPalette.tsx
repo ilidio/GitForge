@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save, History } from 'lucide-react';
+import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save, History, FileText, Terminal } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface CommandPaletteProps {
@@ -18,11 +18,12 @@ interface CommandPaletteProps {
         commit: () => void;
         createBranch: () => void;
         openSettings: () => void;
-        openReflog: () => void;
-        openWorktrees: () => void;
-        runGc: () => void;
-    };
-}
+            openReflog: () => void;
+            openWorktrees: () => void;
+            runGc: () => void;
+            openFileSearch: () => void;
+            toggleTerminal: () => void;
+        };}
 
 export default function CommandPalette({ open, onOpenChange, actions, repoPath, hasHistory, hasRemotes, hasStagedChanges }: CommandPaletteProps) {
     
@@ -80,8 +81,19 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath, 
             </Command.Item>
         </Command.Group>
 
-        <Command.Group heading="Branch & Tags">
-            <Command.Item disabled={!repoPath || !hasHistory} onSelect={() => run(actions.createBranch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                        <Command.Group heading="Navigation & Search">
+                            <Command.Item disabled={!repoPath} onSelect={() => run(actions.openFileSearch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                <FileText className="mr-2 h-4 w-4" />
+                                <span>Go to File...</span>
+                                <span className="ml-auto text-xs tracking-widest text-muted-foreground">Cmd+P</span>
+                            </Command.Item>
+                            <Command.Item disabled={!repoPath} onSelect={() => run(actions.toggleTerminal)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                <Terminal className="mr-2 h-4 w-4" />
+                                <span>Toggle Terminal</span>
+                            </Command.Item>
+                        </Command.Group>
+        
+                        <Command.Group heading="Branch & Tags">            <Command.Item disabled={!repoPath || !hasHistory} onSelect={() => run(actions.createBranch)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                 <GitBranch className="mr-2 h-4 w-4" />
                 <span>Create New Branch...</span>
             </Command.Item>

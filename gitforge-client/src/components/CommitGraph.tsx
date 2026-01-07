@@ -29,16 +29,16 @@ const LIGHT_COLORS = ['#2563eb', '#db2777', '#ca8a04', '#16a34a', '#9333ea', '#e
 
 function SignatureBadge({ status }: { status?: string }) {
     if (!status || status === 'N') return null;
-    if (status === 'G') return <Lock className="w-3 h-3 text-green-500" title="Verified Signature" />;
-    if (status === 'B') return <ShieldAlert className="w-3 h-3 text-red-500" title="Bad Signature" />;
-    return <ShieldQuestion className="w-3 h-3 text-yellow-500" title="Unknown Signature" />;
+    if (status === 'G') return <span title="Verified Signature"><Lock className="w-3 h-3 text-green-500" /></span>;
+    if (status === 'B') return <span title="Bad Signature"><ShieldAlert className="w-3 h-3 text-red-500" /></span>;
+    return <span title="Unknown Signature"><ShieldQuestion className="w-3 h-3 text-yellow-500" /></span>;
 }
 
 function StatusBadge({ status }: { status?: string }) {
     if (!status) return null;
-    if (status === 'success') return <CheckCircle2 className="w-3 h-3 text-green-500" title="Build Passed" />;
-    if (status === 'failure' || status === 'error') return <XCircle className="w-3 h-3 text-red-500" title="Build Failed" />;
-    if (status === 'pending') return <CircleDashed className="w-3 h-3 text-yellow-500 animate-spin" title="Build Pending" />;
+    if (status === 'success') return <span title="Build Passed"><CheckCircle2 className="w-3 h-3 text-green-500" /></span>;
+    if (status === 'failure' || status === 'error') return <span title="Build Failed"><XCircle className="w-3 h-3 text-red-500" /></span>;
+    if (status === 'pending') return <span title="Build Pending"><CircleDashed className="w-3 h-3 text-yellow-500 animate-spin" /></span>;
     return null;
 }
 
@@ -153,7 +153,8 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
                             x2={rail.laneIndex * LANE_WIDTH + LANE_WIDTH / 2}
                             y2={rail.toY + COMMIT_HEIGHT/2}   
                             stroke={rail.color}
-                            strokeWidth="2"
+                            strokeWidth="3"
+                            strokeLinecap="round"
                         />
                     ))}
                     {row.commit.parents.map((parentId: string) => {
@@ -170,17 +171,22 @@ export default function CommitGraph({ commits, branches, onCommitClick, onAction
                                     x1={x1} y1={y1}
                                     x2={x2} y2={y2}
                                     stroke={row.color}
-                                    strokeWidth="2"
+                                    strokeWidth="3"
+                                    strokeLinecap="round"
                                 />
                              );
                          }
-                         const d = `M ${x1} ${y1} C ${x1} ${y1 + COMMIT_HEIGHT/2}, ${x2} ${y1 + COMMIT_HEIGHT/2}, ${x2} ${y2}`;
+                         // Metro-style curve with rounded corners effect using cubic bezier
+                         // Control points at 50% vertical distance
+                         const cpY = y1 + (y2 - y1) / 2;
+                         const d = `M ${x1} ${y1} C ${x1} ${cpY}, ${x2} ${cpY}, ${x2} ${y2}`;
                          return (
                             <path 
                                 key={`${row.commit.id}-${parentId}`}
                                 d={d}
                                 stroke={row.color}
-                                strokeWidth="2"
+                                strokeWidth="3"
+                                strokeLinecap="round"
                                 fill="none"
                             />
                          );

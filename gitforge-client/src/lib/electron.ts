@@ -32,6 +32,11 @@ export async function generateAICommitMessage(diff: string, apiKey: string, endp
     return ipcRenderer.invoke('ai:generateCommitMessage', { diff, apiKey, endpoint, model, context });
 }
 
+export async function getFileContentBinary(repoPath: string, ref: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:showBinary', { repoPath, ref, filePath });
+}
+
 export async function getDiffDetails(repoPath: string, filePath: string, staged: boolean) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:diffDetails', { repoPath, filePath, staged });
@@ -61,7 +66,7 @@ export function spawnTerminal(repoPath: string, cols: number, rows: number, onDa
 
     ipcRenderer.send('terminal:spawn', { repoPath, cols, rows });
     
-    ipcRenderer.on('terminal:data', (_, data: string) => {
+    ipcRenderer.on('terminal:data', (_: any, data: string) => {
         onData(data);
     });
 

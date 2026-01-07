@@ -8,11 +8,12 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getRepoStatus, getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, checkout, merge, cherryPick, getBranches, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig } from '@/lib/electron';
+import { getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary } from '@/lib/electron';
 import CommitGraph from '@/components/CommitGraph';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
 import PatchView from '@/components/PatchView';
+import ImageDiffView from '@/components/ImageDiffView';
 import dynamic from 'next/dynamic';
 const TerminalPanel = dynamic(() => import('@/components/TerminalPanel'), { ssr: false });
 import FileSearchDialog from '@/components/FileSearchDialog';
@@ -338,7 +339,25 @@ export default function Home() {
           }
       };
       window.addEventListener('keydown', handleKeyDown);
-      return () => window.removeEventListener('keydown', handleKeyDown);
+
+      // Electron Menu Listeners
+      if (typeof window !== 'undefined' && (window as any).require) {
+          const { ipcRenderer } = (window as any).require('electron');
+          ipcRenderer.on('menu:open-settings', () => setIsSettingsOpen(true));
+          ipcRenderer.on('menu:open-repo', (_: any, path: string) => {
+              setRepoPath(path);
+              loadRepo(50, path);
+          });
+      }
+
+      return () => {
+          window.removeEventListener('keydown', handleKeyDown);
+          if (typeof window !== 'undefined' && (window as any).require) {
+              const { ipcRenderer } = (window as any).require('electron');
+              ipcRenderer.removeAllListeners('menu:open-settings');
+              ipcRenderer.removeAllListeners('menu:open-repo');
+          }
+      };
   }, []);
 
   // Auto-Fetch Effect
@@ -543,12 +562,47 @@ export default function Home() {
       }
   };
 
+// Helper to check if file is image
+function isImage(path: string) {
+    return /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(path);
+}
+
   const handleFileClick = async (filePath: string) => {
     setSelectedFile(filePath);
     setIsPatchMode(false);
     try {
         let diff;
-        if (viewMode === 'workdir') {
+        if (isImage(filePath)) {
+            // Load binary data
+            const originalBase64 = await getFileContentBinary(repoPath, 'HEAD', filePath);
+            let modifiedBase64 = null;
+            
+            if (viewMode === 'workdir') {
+                const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
+                const isStaged = fileStatus.includes('Index') || fileStatus === 'Staged';
+                if (isStaged) {
+                    modifiedBase64 = await getFileContentBinary(repoPath, '', filePath); // git show :path
+                }
+                // If workdir unstaged, we can use file:// protocol or read it.
+                // For simplicity let's assume we read it via FS or user sees the staged version if staged.
+                // Or we can use a special "workdir" ref logic in main.js? 
+                // Let's just use empty string ref for staged, but for workdir we need fs.readFile.
+                // But getFileContentBinary does `git show`.
+                // Let's assume we compare HEAD vs Workdir.
+                // Workdir image: Use URL.createObjectURL? No, local file path.
+                // But Electron renderer can't access local files directly without `webSecurity: false` or `protocol` handler.
+                // We'll rely on the fact that `next dev` won't serve it.
+                // So let's skip modified for workdir image for now unless staged.
+            } else {
+                modifiedBase64 = await getFileContentBinary(repoPath, selectedCommit.id, filePath);
+            }
+            
+            diff = {
+                isImage: true,
+                originalUrl: originalBase64 ? `data:image/png;base64,${originalBase64}` : '',
+                modifiedUrl: modifiedBase64 ? `data:image/png;base64,${modifiedBase64}` : '' // Fallback needed
+            };
+        } else if (viewMode === 'workdir') {
             const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
             const isStaged = fileStatus.includes('Index') || fileStatus === 'Staged';
             
@@ -1732,7 +1786,13 @@ export default function Home() {
                          </div>
                      </div>
                      <div className="flex-1 p-2 overflow-hidden">
-                        {isPatchMode && diffData.patch ? (
+                        {diffData.isImage ? (
+                            <ImageDiffView 
+                                originalUrl={diffData.originalUrl} 
+                                modifiedUrl={diffData.modifiedUrl} 
+                                fileName={selectedFile} 
+                            />
+                        ) : isPatchMode && diffData.patch ? (
                             <PatchView 
                                 diff={diffData.patch} 
                                 repoPath={repoPath} 
@@ -1758,6 +1818,7 @@ export default function Home() {
                                     <InternalDiffView 
                                         original={diffData.originalContent} 
                                         modified={diffData.modifiedContent} 
+                                        language={getLanguageFromPath(selectedFile)}
                                         renderSideBySide={diffMode === 'side-by-side'}
                                     />
                                 ) : (

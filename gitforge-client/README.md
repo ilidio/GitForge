@@ -1,36 +1,64 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GitForge
 
-## Getting Started
+**GitForge** is a modern, AI-powered Git client built with web technologies. It combines the performance of a native application with the flexibility of the modern web stack.
 
-First, run the development server:
+![GitForge Logo](public/logo.png)
+
+## 🚀 Key Features
+
+*   **🤖 AI Commit Assistant**: Generate semantic commit messages automatically from your changes using OpenAI or Gemini.
+*   **📊 Interactive Graph**: Visualize your commit history with a beautiful "Metro Map" style graph.
+*   **📝 Enhanced Diff & Patch**:
+    *   **Side-by-Side** & **Inline** Diff Views with syntax highlighting.
+    *   **Image Diffing**: Swipe, Onion Skin, and Side-by-Side comparison for assets.
+    *   **Patch Mode**: Stage specific lines or hunks of code interactively.
+*   **📦 Advanced Stashing**: Stash individual files or manage your stash list with ease.
+*   **💻 Integrated Terminal**: Built-in terminal panel for quick CLI commands without leaving the app.
+*   **🔍 Fuzzy File Search**: Instantly jump to any file in your repository (`Cmd+P`).
+*   **🐙 GitHub Integration**: View Pull Requests, Issues, and CI/CD Build Statuses directly in the graph.
+
+## 🛠️ Development
+
+To start the application in development mode:
 
 ```bash
+# Install dependencies
+npm install
+
+# Run development server (Next.js + Electron)
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**Note:** In development mode (`npm run dev`), the application menu bar on macOS will display **"Electron"** instead of "GitForge". This is a standard behavior of the Electron runner. To see the correct branding, you must build the application for production.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 📦 Production Build
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+To create a standalone application package (e.g., `.dmg` for macOS, `.exe` for Windows, or `.AppImage` for Linux):
 
-## Learn More
+```bash
+# Build the application
+npm run dist
+```
 
-To learn more about Next.js, take a look at the following resources:
+This command will:
+1.  Build the Next.js application.
+2.  Package the Electron app using `electron-builder`.
+3.  Output the installers to the `dist/` directory.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**Why build?**
+-   **Correct Branding**: The menu bar will correctly show **"GitForge"**.
+-   **Performance**: The app runs optimized production code.
+-   **Portability**: You get a single installable file.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🏗️ Tech Stack
 
-## Deploy on Vercel
+*   **Framework**: [Electron](https://www.electronjs.org/) + [Next.js](https://nextjs.org/)
+*   **UI Library**: [React](https://react.dev/) + [Shadcn/UI](https://ui.shadcn.com/)
+*   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+*   **Editor**: [Monaco Editor](https://microsoft.github.io/monaco-editor/) (Diff View)
+*   **Terminal**: [xterm.js](https://xtermjs.org/)
+*   **Drag & Drop**: [dnd-kit](https://dndkit.com/)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 📄 License
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Private / Proprietary

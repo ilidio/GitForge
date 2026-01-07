@@ -3,6 +3,24 @@
 import React, { useMemo } from 'react';
 import { computeDiff, alignDiffChanges } from '@/lib/simpleDiff';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css'; // or prism-okaidia
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-jsx';
+import 'prismjs/components/prism-tsx';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-rust';
+import 'prismjs/components/prism-go';
+import 'prismjs/components/prism-c';
+import 'prismjs/components/prism-cpp';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-yaml';
 
 interface InternalDiffViewProps {
     original: string;
@@ -11,7 +29,13 @@ interface InternalDiffViewProps {
     renderSideBySide?: boolean;
 }
 
-export default function InternalDiffView({ original, modified, renderSideBySide = true }: InternalDiffViewProps) {
+const highlight = (code: string, lang: string) => {
+    // Map generic languages to Prism aliases
+    const prismLang = Prism.languages[lang] || Prism.languages.plaintext;
+    return Prism.highlight(code || '', prismLang, lang || 'plaintext');
+};
+
+export default function InternalDiffView({ original, modified, language = 'plaintext', renderSideBySide = true }: InternalDiffViewProps) {
     const changes = useMemo(() => computeDiff(original, modified), [original, modified]);
     const alignedRows = useMemo(() => alignDiffChanges(changes), [changes]);
 
@@ -19,28 +43,36 @@ export default function InternalDiffView({ original, modified, renderSideBySide 
         return (
             <div className="flex h-full font-mono text-xs bg-white dark:bg-slate-950 overflow-auto">
                 <div className="w-1/2 border-r flex flex-col">
-                    {alignedRows.map((row, i) => (
-                        <div key={i} className={`flex ${row.left?.type === 'delete' ? 'bg-red-100 dark:bg-red-900/20' : ''} h-5`}>
-                            <span className="w-8 text-right text-gray-400 select-none mr-2 bg-slate-50 dark:bg-slate-900 px-1 border-r border-transparent">
-                                {row.left?.originalLine || ''}
-                            </span>
-                            <span className={`whitespace-pre flex-1 ${!row.left ? 'bg-slate-100/50 dark:bg-slate-800/50' : ''}`}>
-                                {row.left?.content || ''}
-                            </span>
-                        </div>
-                    ))}
+                    {alignedRows.map((row, i) => {
+                        const html = highlight(row.left?.content || '', language);
+                        return (
+                            <div key={i} className={`flex ${row.left?.type === 'delete' ? 'bg-red-100 dark:bg-red-900/20' : ''} h-5`}>
+                                <span className="w-8 text-right text-gray-400 select-none mr-2 bg-slate-50 dark:bg-slate-900 px-1 border-r border-transparent">
+                                    {row.left?.originalLine || ''}
+                                </span>
+                                <span 
+                                    className={`whitespace-pre flex-1 ${!row.left ? 'bg-slate-100/50 dark:bg-slate-800/50' : ''}`}
+                                    dangerouslySetInnerHTML={{ __html: html }}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
                 <div className="w-1/2 flex flex-col">
-                     {alignedRows.map((row, i) => (
-                        <div key={i} className={`flex ${row.right?.type === 'insert' ? 'bg-green-100 dark:bg-green-900/20' : ''} h-5`}>
-                            <span className="w-8 text-right text-gray-400 select-none mr-2 bg-slate-50 dark:bg-slate-900 px-1 border-r border-transparent">
-                                {row.right?.modifiedLine || ''}
-                            </span>
-                            <span className={`whitespace-pre flex-1 ${!row.right ? 'bg-slate-100/50 dark:bg-slate-800/50' : ''}`}>
-                                {row.right?.content || ''}
-                            </span>
-                        </div>
-                    ))}
+                     {alignedRows.map((row, i) => {
+                        const html = highlight(row.right?.content || '', language);
+                        return (
+                            <div key={i} className={`flex ${row.right?.type === 'insert' ? 'bg-green-100 dark:bg-green-900/20' : ''} h-5`}>
+                                <span className="w-8 text-right text-gray-400 select-none mr-2 bg-slate-50 dark:bg-slate-900 px-1 border-r border-transparent">
+                                    {row.right?.modifiedLine || ''}
+                                </span>
+                                <span 
+                                    className={`whitespace-pre flex-1 ${!row.right ? 'bg-slate-100/50 dark:bg-slate-800/50' : ''}`}
+                                    dangerouslySetInnerHTML={{ __html: html }}
+                                />
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         );
@@ -54,17 +86,20 @@ export default function InternalDiffView({ original, modified, renderSideBySide 
                 if (change.type === 'insert') bgClass = 'bg-green-100 dark:bg-green-900/20';
                 if (change.type === 'delete') bgClass = 'bg-red-100 dark:bg-red-900/20';
                 
+                const html = highlight(change.content, language);
+
                 return (
                     <div key={i} className={`flex ${bgClass} h-5`}>
                         <div className="flex w-16 text-gray-400 select-none bg-slate-50 dark:bg-slate-900 border-r mr-2">
                             <span className="w-8 text-right pr-1">{change.originalLine || ''}</span>
                             <span className="w-8 text-right pr-1">{change.modifiedLine || ''}</span>
                         </div>
-                        <div className="flex-1 whitespace-pre">
-                            {change.type === 'insert' && '+ '}
-                            {change.type === 'delete' && '- '}
-                            {change.type === 'keep' && '  '}
-                            {change.content}
+                        <div className="flex-1 whitespace-pre flex">
+                            <span className="select-none opacity-50 mr-1 w-2 text-center">
+                                {change.type === 'insert' && '+'}
+                                {change.type === 'delete' && '-'}
+                            </span>
+                            <span dangerouslySetInnerHTML={{ __html: html }} />
                         </div>
                     </div>
                 );

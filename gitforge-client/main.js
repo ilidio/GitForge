@@ -1,10 +1,122 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
-const isDev = require('electron-is-dev');
 const { spawn, exec } = require('child_process');
 const fs = require('fs');
 
+let loadURL;
+
+(async () => {
+    try {
+        const serve = (await import('electron-serve')).default;
+        loadURL = serve({ directory: 'out' });
+    } catch (e) {
+        console.error("Failed to load electron-serve", e);
+    }
+})();
+
+app.setName('GitForge');
+
 let sidecarProcess = null;
+let mainWindow = null;
+
+function createMenu() {
+    const isMac = process.platform === 'darwin';
+    const template = [
+        ...(isMac ? [{
+            label: 'GitForge',
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { 
+                    label: 'Preferences...', 
+                    accelerator: 'CmdOrCtrl+,', 
+                    click: () => mainWindow?.webContents.send('menu:open-settings') 
+                },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        }] : []),
+        {
+            label: 'File',
+            submenu: [
+                { 
+                    label: 'Open Repository...', 
+                    accelerator: 'CmdOrCtrl+O',
+                    click: async () => {
+                        const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+                        if (!canceled && filePaths.length > 0) {
+                            mainWindow?.webContents.send('menu:open-repo', filePaths[0]);
+                        }
+                    }
+                },
+                { type: 'separator' },
+                isMac ? { role: 'close' } : { role: 'quit' }
+            ]
+        },
+        {
+            label: 'Edit',
+            submenu: [
+                { role: 'undo' },
+                { role: 'redo' },
+                { type: 'separator' },
+                { role: 'cut' },
+                { role: 'copy' },
+                { role: 'paste' },
+                { role: 'delete' },
+                { role: 'selectAll' }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        },
+        {
+            label: 'Window',
+            submenu: [
+                { role: 'minimize' },
+                { role: 'zoom' },
+                ...(isMac ? [
+                    { type: 'separator' },
+                    { role: 'front' },
+                    { type: 'separator' },
+                    { role: 'window' }
+                ] : [
+                    { role: 'close' }
+                ])
+            ]
+        },
+        {
+            role: 'help',
+            submenu: [
+                {
+                    label: 'Learn More',
+                    click: async () => {
+                        await shell.openExternal('https://github.com/ilidiomartins/gitforge');
+                    }
+                }
+            ]
+        }
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
+}
 
 function runGit(command, repoPath) {
   // Normalize path for the OS
@@ -29,7 +141,7 @@ function startSidecar() {
   const isWindows = process.platform === 'win32';
   const dotnetCmd = isWindows ? 'dotnet.exe' : 'dotnet';
 
-  if (isDev) {
+  if (!app.isPackaged) {
     console.log('Starting sidecar in dev mode...');
     const serverPath = path.resolve(__dirname, '..', 'gitforge-server');
     sidecarProcess = spawn(dotnetCmd, ['run', '--project', 'GitForge.Server.csproj'], {
@@ -48,10 +160,10 @@ function startSidecar() {
   });
 }
 
-function createWindow() {
+async function createWindow() {
   const isMac = process.platform === 'darwin';
   
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: path.join(__dirname, 'public', 'logo.png'),
@@ -70,18 +182,16 @@ function createWindow() {
       } catch (e) { console.error("Failed to set dock icon", e); }
   }
 
-  const url = isDev
-    ? 'http://localhost:3000'
-    : `file://${path.join(__dirname, '..', 'out', 'index.html')}`;
-
-  win.loadURL(url);
-
-  if (isDev) {
-    win.webContents.openDevTools();
+  if (app.isPackaged) {
+      await loadURL(mainWindow);
+  } else {
+      await mainWindow.loadURL('http://localhost:3000');
+      mainWindow.webContents.openDevTools();
   }
 }
 
 app.whenReady().then(() => {
+  createMenu();
   ipcMain.handle('dialog:openDirectory', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
       properties: ['openDirectory']
@@ -154,6 +264,24 @@ app.whenReady().then(() => {
           console.error("AI Generation Failed:", error);
           throw error;
       }
+  });
+
+  ipcMain.handle('git:showBinary', async (_, { repoPath, ref, filePath }) => {
+      // Returns base64 string
+      return new Promise((resolve, reject) => {
+          // git show ref:path
+          const child = spawn('git', ['show', `${ref}:${filePath}`], { cwd: repoPath });
+          const chunks = [];
+          child.stdout.on('data', c => chunks.push(c));
+          child.on('close', (code) => {
+              if (code === 0) {
+                  const buffer = Buffer.concat(chunks);
+                  resolve(buffer.toString('base64'));
+              } else {
+                  resolve(null);
+              }
+          });
+      });
   });
 
   ipcMain.handle('git:diffDetails', async (_, { repoPath, filePath, staged }) => {
