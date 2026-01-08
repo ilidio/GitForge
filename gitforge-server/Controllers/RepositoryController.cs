@@ -458,4 +458,75 @@ public class RepositoryController : ControllerBase
             return StatusCode(500, ex.Message);
         }
     }
+
+    [HttpGet("stashes")]
+    public IActionResult GetStashes([FromQuery] string repoPath)
+    {
+        try
+        {
+            using var repo = new Repository(repoPath);
+            var stashes = repo.Stashes.Select((s, index) => new GitStashItem(
+                index,
+                s.Message,
+                s.Base.Author.When
+            )).ToList();
+
+            return Ok(stashes);
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpPost("stash/push")]
+    public IActionResult PushStash([FromBody] CommitRequest request)
+    {
+        // Reusing CommitRequest: Message -> Stash Message
+        try
+        {
+            using var repo = new Repository(request.RepoPath);
+            var signature = new Signature("GitForge", "git@forge.com", DateTimeOffset.Now);
+            repo.Stashes.Add(signature, request.Message);
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpPost("stash/pop")]
+    public IActionResult PopStash([FromQuery] string repoPath, [FromQuery] int index = 0)
+    {
+        try
+        {
+            using var repo = new Repository(repoPath);
+            if (index < 0 || index >= repo.Stashes.Count()) return NotFound("Stash index out of range");
+            
+            repo.Stashes.Pop(index, new StashApplyOptions());
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
+
+    [HttpPost("stash/drop")]
+    public IActionResult DropStash([FromQuery] string repoPath, [FromQuery] int index = 0)
+    {
+        try
+        {
+            using var repo = new Repository(repoPath);
+            if (index < 0 || index >= repo.Stashes.Count()) return NotFound("Stash index out of range");
+
+            repo.Stashes.Remove(index);
+            return Ok();
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, ex.Message);
+        }
+    }
 }

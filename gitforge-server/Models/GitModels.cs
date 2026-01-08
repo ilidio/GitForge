@@ -9,3 +9,5 @@ public record GitRepoStatus(string BranchName, List<GitFileStatus> Files);
 public record GitFileDiff(string Path, string OriginalContent, string ModifiedContent);
 
 public record CommitRequest(string RepoPath, string Message, string AuthorName, string AuthorEmail);
+
+public record GitStashItem(int Index, string Message, DateTimeOffset Timestamp);

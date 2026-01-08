@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "next lint",
     "electron": "electron .",
-    "dist": "next build && electron-builder"
+    "dist": "next build && electron-builder",
+    "prod": "cd .. && ./publish-server.sh && cd gitforge-client && npm run dist"
   },
   "build": {
     "appId": "com.gitforge.app",
@@ -39,7 +40,16 @@
     "linux": {
       "target": "AppImage",
       "icon": "public/logo.png"
-    }
+    },
+    "extraResources": [
+      {
+        "from": "server-dist",
+        "to": "server",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

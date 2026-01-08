@@ -37,6 +37,7 @@ import RepoInsightsDialog from '@/components/RepoInsightsDialog';
 import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
+import StashDialog from '@/components/StashDialog';
 import Ansi from 'ansi-to-react';
 import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers } from 'lucide-react';
 import {
@@ -228,6 +229,9 @@ export default function Home() {
 
   // Insights State
   const [isInsightsOpen, setIsInsightsOpen] = useState(false);
+
+  // Stash Dialog State
+  const [isStashDialogOpen, setIsStashDialogOpen] = useState(false);
 
   // Terminal State
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -916,6 +920,20 @@ function isImage(path: string) {
       setActionLoading(true);
       try {
           await popStash(repoPath, index);
+          await loadRepo(historyLimit);
+          setIsStashDialogOpen(false);
+      } catch (err: any) {
+          setError(err.message);
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleStashDrop = async (index: number) => {
+      if (!confirm("Are you sure you want to drop this stash?")) return;
+      setActionLoading(true);
+      try {
+          await dropStash(repoPath, index);
           await loadRepo(historyLimit);
       } catch (err: any) {
           setError(err.message);
@@ -2038,6 +2056,14 @@ function isImage(path: string) {
         onOpenChange={setIsHelpOpen} 
       />
 
+      <StashDialog 
+        open={isStashDialogOpen} 
+        onOpenChange={setIsStashDialogOpen} 
+        stashes={stashes} 
+        onPop={handleStashPop} 
+        onDrop={handleStashDrop}
+      />
+
       <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>
         <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
             <DialogHeader>
@@ -2095,6 +2121,7 @@ function isImage(path: string) {
             openSettings: () => setIsSettingsOpen(true),
             openReflog: () => setIsReflogOpen(true),
             openWorktrees: () => setIsWorktreeOpen(true),
+            openStashes: () => setIsStashDialogOpen(true),
             runGc: handleGc,
             openFileSearch: () => setIsFileSearchOpen(true),
             toggleTerminal: () => setIsTerminalOpen(!isTerminalOpen),
