@@ -687,13 +687,12 @@ function isImage(path: string) {
           const model = localStorage.getItem('ai_model') || 'gpt-3.5-turbo';
           let endpoint = 'https://api.openai.com/v1/chat/completions';
           if (provider === 'gemini') {
-              // Assuming user provides OpenAI compatible endpoint or we handle it in main.js
-              // For now, main.js handles generic OpenAI format. 
+              endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
           }
           
           const context = localStorage.getItem('ai_context') || '';
 
-          const message = await generateAICommitMessage(diff, apiKey, undefined, model, context);
+          const message = await generateAICommitMessage(diff, apiKey, endpoint, model, context);
           if (message) setCommitMessage(message);
       } catch (e: any) {
           setError(e.message);

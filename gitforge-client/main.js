@@ -239,6 +239,31 @@ app.whenReady().then(() => {
       ${diff.substring(0, 3000)}`; // Truncate to avoid huge context
 
       try {
+          // Special handling for Gemini API
+          if (apiEndpoint.includes('generativelanguage.googleapis.com')) {
+              const geminiUrl = `${apiEndpoint}?key=${apiKey}`;
+              const geminiPrompt = `${systemPrompt}\n\n${prompt}`;
+              
+              const response = await fetch(geminiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      contents: [{
+                          parts: [{ text: geminiPrompt }]
+                      }]
+                  })
+              });
+
+              if (!response.ok) {
+                  const err = await response.text();
+                  throw new Error(`Gemini API Error: ${err}`);
+              }
+
+              const data = await response.json();
+              return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          } 
+          
+          // Standard OpenAI-compatible API
           const response = await fetch(apiEndpoint, {
               method: 'POST',
               headers: {
