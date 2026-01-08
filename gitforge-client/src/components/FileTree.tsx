@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, FileText, Folder, Trash, Eye, Archive } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Folder, FolderOpen, Trash, Eye, Archive } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
@@ -31,7 +31,7 @@ export default function FileTree({ files, selectedFile, onFileClick, onToggleSta
     const buildTree = (files: any[]) => {
         const root: TreeNode = { name: '', path: '', children: {}, files: [] };
         files.forEach(file => {
-            const parts = file.path.split('/');
+            const parts = file.path.split('/').filter((p: string) => p.length > 0);
             let current = root;
             let currentPath = '';
             for (let i = 0; i < parts.length - 1; i++) {
@@ -88,7 +88,11 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                             isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
                         ) : null}
                     </div>
-                    <Folder className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
+                    {isOpen ? (
+                        <FolderOpen className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
+                    ) : (
+                        <Folder className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
+                    )}
                     <span className="font-medium truncate">{node.name}</span>
                 </div>
             )}
@@ -113,7 +117,8 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                         />
                     ))}
                     {node.files.sort((a: any, b: any) => a.path.localeCompare(b.path)).map((file: any) => {
-                        const fileName = file.path.split('/').pop();
+                        const isDir = file.path.endsWith('/');
+                        const fileName = file.path.replace(/\/$/, '').split('/').pop();
                         const isStaged = file.status.includes("Index") || file.status === "Staged";
                         const isConflicted = file.status.includes("Conflicted");
 
@@ -134,8 +139,12 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                                                     className="h-3 w-3"
                                                 />
                                             )}
-                                            <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${isConflicted ? 'text-destructive' : 'text-muted-foreground'}`} />
-                                            <div className="flex-1 truncate flex items-center justify-between gap-2">
+                                            {isDir ? (
+                                                <Folder className="h-3.5 w-3.5 flex-shrink-0 text-blue-400 fill-blue-400/20" />
+                                            ) : (
+                                                <FileText className={`h-3.5 w-3.5 flex-shrink-0 ${isConflicted ? 'text-destructive' : 'text-muted-foreground'}`} />
+                                            )}
+                                            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
                                                 <span className={`truncate ${isConflicted ? 'text-destructive font-semibold' : ''}`}>{fileName}</span>
                                                 <div className="flex items-center gap-2 flex-shrink-0">
                                                     {isConflicted && onResolve && (
