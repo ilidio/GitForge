@@ -151,8 +151,10 @@ function startSidecar() {
     });
   } else {
     const binaryName = isWindows ? 'GitForge.Server.exe' : 'GitForge.Server';
-    const sidecarPath = path.join(process.resourcesPath, binaryName);
-    sidecarProcess = spawn(sidecarPath, [], { stdio: 'inherit' });
+    // We copied the server-dist folder to 'server' in extraResources
+    const sidecarPath = path.join(process.resourcesPath, 'server', binaryName);
+    // Explicitly set the port to 5030 for production to match client API
+    sidecarProcess = spawn(sidecarPath, ['--urls', 'http://localhost:5030'], { stdio: 'inherit' });
   }
 
   sidecarProcess.on('error', (err) => {

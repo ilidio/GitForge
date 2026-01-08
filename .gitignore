@@ -1,5 +1,8 @@
 # OS
+gitforge-server/bin/
+gitforge-server/obj/
 .DS_Store
+gitforge-client/server-dist/
 *.swp
 *~
 Thumbs.db
