@@ -7,9 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { getRepoStatus, getBranches, checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary } from '@/lib/electron';
-import CommitGraph from '@/components/CommitGraph';
+import { getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase, getRepoStatus, getBranches } from '@/lib/api';
+import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary } from '@/lib/electron';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
 import PatchView from '@/components/PatchView';
@@ -183,7 +182,6 @@ export default function Home() {
 
   // View Mode: 'workdir' or 'commit'
   const [viewMode, setViewMode] = useState<'workdir' | 'commit'>('workdir');
-  const [graphMode, setGraphMode] = useState<'visual' | 'terminal'>('terminal');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [diffMode, setDiffMode] = useState<'side-by-side' | 'inline'>('side-by-side');
   const [useInternalDiff, setUseInternalDiff] = useState(true);
@@ -1904,22 +1902,7 @@ function isImage(path: string) {
                                                                                         <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => setIsGrepSearchOpen(true)} title="Deep History Search (Grep)">
                                                                                             <Search className="h-3.5 w-3.5" />
                                                                                         </Button>
-                                                                                    </div>                                                        <Button 
-                                                            variant={graphMode === 'visual' ? 'secondary' : 'ghost'} 
-                                                            size="sm" 
-                                                            onClick={() => setGraphMode('visual')}                                title="Visual Graph"
-                            >
-                                <GitGraphIcon className="h-4 w-4" />
-                            </Button>
-                            <Button 
-                                variant={graphMode === 'terminal' ? 'secondary' : 'ghost'}
-                                size="sm" 
-                                onClick={() => setGraphMode('terminal')}
-                                title="Terminal Graph"
-                            >
-                                <Terminal className="h-4 w-4" />
-                            </Button>
-                            <Separator orientation="vertical" className="h-4" />
+                                                                                    </div>                            <Separator orientation="vertical" className="h-4" />
                             {history.length > 0 && (
                                 <Button variant="outline" size="sm" onClick={loadMore} disabled={loading} className="h-7 text-[10px]">
                                     {loading ? 'Loading...' : 'Load 50 More'}
@@ -1928,44 +1911,15 @@ function isImage(path: string) {
                         </div>
                     </div>
                     <div className="flex-1 overflow-hidden h-full bg-slate-950">
-                        {graphMode === 'visual' ? (
-                            history.length > 0 ? (
-                                <CommitGraph 
-                                    commits={history.filter(c => {
-                                        const matchesText = !historySearch || 
-                                            c.message.toLowerCase().includes(historySearch.toLowerCase()) || 
-                                            c.id.toLowerCase().includes(historySearch.toLowerCase());
-                                        
-                                        const matchesAuthor = !searchAuthor || 
-                                            c.author.toLowerCase().includes(searchAuthor.toLowerCase());
-
-                                        const matchesDate = !searchDate || 
-                                            c.timestamp.includes(searchDate);
-
-                                        return matchesText && matchesAuthor && matchesDate;
-                                    })} 
-                                    branches={branches} 
-                                    onCommitClick={handleCommitClick} 
-                                    onAction={handleGraphAction} 
-                                    theme="dark"
-                                    statuses={commitStatuses}
+                        <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
+                            <div className="p-6">
+                                <InteractiveTerminalGraph 
+                                    content={textGraph} 
+                                    onCommitSelect={handleTerminalCommitClick} 
+                                    onAction={handleGraphAction}
                                 />
-                            ) : (
-                                <div className="flex h-full items-center justify-center text-muted-foreground text-sm italic">
-                                    {repoPath ? (loading ? 'Loading history...' : 'No commits found') : 'Enter a repository path to begin'}
-                                </div>
-                            )
-                        ) : (
-                            <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
-                                <div className="p-6">
-                                    <InteractiveTerminalGraph 
-                                        content={textGraph} 
-                                        onCommitSelect={handleTerminalCommitClick} 
-                                        onAction={handleGraphAction}
-                                    />
-                                </div>
-                            </ScrollArea>
-                        )}
+                            </div>
+                        </ScrollArea>
                     </div>
                 </div>
              )}

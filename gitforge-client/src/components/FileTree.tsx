@@ -25,16 +25,27 @@ interface TreeNode {
     path: string;
     children: Record<string, TreeNode>;
     files: any[];
+    fileData?: any; // For when a directory itself is a status item
 }
 
 export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash }: FileTreeProps) {
     const buildTree = (files: any[]) => {
         const root: TreeNode = { name: '', path: '', children: {}, files: [] };
         files.forEach(file => {
-            const parts = file.path.split('/').filter((p: string) => p.length > 0);
+            const isDir = file.path.endsWith('/');
+            // Normalize path separator and filter empty parts
+            const normalizedPath = file.path.replace(/\\/g, '/');
+            const parts = normalizedPath.split('/').filter((p: string) => p.length > 0);
+            
             let current = root;
             let currentPath = '';
-            for (let i = 0; i < parts.length - 1; i++) {
+            
+            // Walk the tree
+            // If it's a dir item (ends in /), we process ALL parts to find/create the folder node
+            // If it's a file item, we process all but the last part
+            const walkDepth = isDir ? parts.length : parts.length - 1;
+
+            for (let i = 0; i < walkDepth; i++) {
                 const part = parts[i];
                 currentPath = currentPath ? `${currentPath}/${part}` : part;
                 if (!current.children[part]) {
@@ -42,7 +53,13 @@ export default function FileTree({ files, selectedFile, onFileClick, onToggleSta
                 }
                 current = current.children[part];
             }
-            current.files.push(file);
+
+            if (isDir) {
+                // This node IS the status item
+                current.fileData = file;
+            } else {
+                current.files.push(file);
+            }
         });
         return root;
     };
@@ -74,27 +91,88 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
     const [isOpen, setIsOpen] = useState(true);
 
     const hasContent = Object.keys(node.children).length > 0 || node.files.length > 0;
+    
+    // If this folder node has fileData, it means it's a status item itself (e.g. untracked dir)
+    const file = node.fileData;
+    const isStaged = file ? (file.status.includes("Index") || file.status === "Staged") : false;
+    const isConflicted = file ? file.status.includes("Conflicted") : false;
+
+    // Folder Header Component
+    const FolderHeader = (
+        <div 
+            className={`flex items-center py-1 px-2 group cursor-pointer rounded select-none ${file && selectedFile === file.path ? 'bg-primary/10 border-primary/20' : 'hover:bg-muted'}`}
+            style={{ paddingLeft: `${level * 12 + 8}px` }}
+            onClick={(e) => {
+                // If it's a status item, clicking selects it. Otherwise toggles open.
+                // Actually standard behavior: arrow toggles, name toggles? 
+                // Let's make: Arrow always toggles. Name: if status item -> select, else toggle.
+                if (file) onFileClick(file.path);
+                else setIsOpen(!isOpen);
+            }}
+        >
+            <div 
+                className="w-4 h-4 flex items-center justify-center mr-1"
+                onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }}
+            >
+                {hasContent ? (
+                    isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
+                ) : null}
+            </div>
+            
+            {viewMode === 'workdir' && file && (
+                 <Checkbox 
+                     checked={isStaged}
+                     onCheckedChange={() => onToggleStage?.(file)}
+                     onClick={(e) => e.stopPropagation()} 
+                     className="h-3 w-3 mr-2"
+                 />
+            )}
+
+            {isOpen ? (
+                <FolderOpen className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
+            ) : (
+                <Folder className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
+            )}
+            
+            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+                <span className={`font-medium truncate ${isConflicted ? 'text-destructive' : ''}`}>{node.name}</span>
+                {file && (
+                     <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className={`text-[8px] uppercase font-bold px-1 rounded ${isConflicted ? 'bg-destructive/10 text-destructive' : 'bg-muted-foreground/10 text-muted-foreground'}`}>
+                            {file.status.charAt(0)}
+                        </span>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
     return (
         <div>
             {!isRoot && (
-                <div 
-                    className="flex items-center py-1 px-2 hover:bg-muted cursor-pointer rounded select-none"
-                    style={{ paddingLeft: `${level * 12 + 8}px` }}
-                    onClick={() => setIsOpen(!isOpen)}
-                >
-                    <div className="w-4 h-4 flex items-center justify-center mr-1">
-                        {Object.keys(node.children).length > 0 || node.files.length > 0 ? (
-                            isOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />
-                        ) : null}
-                    </div>
-                    {isOpen ? (
-                        <FolderOpen className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
-                    ) : (
-                        <Folder className="h-3.5 w-3.5 mr-2 text-blue-400 fill-blue-400/20" />
-                    )}
-                    <span className="font-medium truncate">{node.name}</span>
-                </div>
+                file ? (
+                    <ContextMenu>
+                        <ContextMenuTrigger asChild>
+                            {FolderHeader}
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                            <ContextMenuItem onClick={() => onIgnore?.(file.path)}>
+                                <Eye className="w-3 h-3 mr-2" /> Add to .gitignore
+                            </ContextMenuItem>
+                            {viewMode === 'workdir' && (
+                                <ContextMenuItem onClick={() => onStash?.(file.path)}>
+                                    <Archive className="w-3 h-3 mr-2" /> Stash This
+                                </ContextMenuItem>
+                            )}
+                            <ContextMenuSeparator />
+                            <ContextMenuItem onClick={() => onDelete?.(file.path)}>
+                                <Trash className="w-3 h-3 mr-2" /> Delete
+                            </ContextMenuItem>
+                        </ContextMenuContent>
+                    </ContextMenu>
+                ) : (
+                    FolderHeader
+                )
             )}
 
             {isOpen && (
