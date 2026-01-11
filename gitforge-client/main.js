@@ -530,8 +530,9 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('git:restoreAll', async (_, repoPath) => {
-      // Discard tracked changes and clean untracked files
-      await runGit('git restore .', repoPath);
+      // Discard ALL changes (staged, unstaged) and clean untracked files
+      // git reset --hard HEAD ensures working tree and index match HEAD
+      await runGit('git reset --hard HEAD', repoPath);
       return runGit('git clean -fd', repoPath);
   });
 
