@@ -1305,7 +1305,7 @@ function isImage(path: string) {
                   {branches.filter(b => !b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
                     <div 
                         key={b.name} 
-                        className={`text-sm px-2 py-1 rounded cursor-grab active:cursor-grabbing truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-muted text-muted-foreground'}`}
+                        className={`text-sm px-2 py-1 rounded cursor-grab active:cursor-grabbing truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted text-muted-foreground'}`}
                         title={b.name}
                         onClick={() => handleCheckout(b.name)}
                         draggable="true"

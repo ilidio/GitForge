@@ -334,9 +334,11 @@ export async function getRepoStatus(repoPath: string) {
 export async function getBranches(repoPath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     const output = await ipcRenderer.invoke('git:branches', repoPath);
-    // SHA|Name|*
+    // SHA|refs/heads/master|*
     return output.split('\n').filter(Boolean).map((line: string) => {
-        const [commitId, name, head] = line.split('|');
-        return { name, commitId, current: head === '*' };
+        const [commitId, refName, head] = line.split('|');
+        const isRemote = refName.startsWith('refs/remotes/');
+        const name = refName.replace('refs/heads/', '').replace('refs/remotes/', '');
+        return { name, commitId, isCurrentRepositoryHead: head === '*', isRemote };
     });
 }

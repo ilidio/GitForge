@@ -616,7 +616,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:branches', async (_, repoPath) => {
       // SHA|RefName|HEAD(*)
-      return runGit('git for-each-ref --sort=-committerdate --format="%(objectname)|%(refname:short)|%(HEAD)" refs/heads refs/remotes', repoPath);
+      return runGit('git for-each-ref --sort=-committerdate --format="%(objectname)|%(refname)|%(HEAD)" refs/heads refs/remotes', repoPath);
   });
 
   ipcMain.handle('git:diffFile', async (_, { repoPath, filePath, staged }) => {
