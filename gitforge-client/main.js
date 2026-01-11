@@ -129,7 +129,8 @@ function runGit(command, repoPath) {
           maxBuffer: 1024 * 1024 * 10 
       }, (error, stdout, stderr) => {
           if (error) {
-              reject({ message: error.message, stderr, stdout });
+              const errorMessage = stderr ? stderr.trim() : error.message;
+              reject(new Error(errorMessage));
           } else {
               resolve(stdout.trim());
           }

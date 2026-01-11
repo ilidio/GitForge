@@ -79,7 +79,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
 
                         <ScrollArea className="flex-1 h-full">
                             <div className="max-w-4xl mx-auto px-12 pt-12 pb-[15px]">
-                                <TabsContent value="basics" className="space-y-16 mt-0">
+                                <TabsContent value="basics" className="space-y-16 mt-0 pb-[15px]">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
                                             <Layout className="h-5 w-5 text-primary" /> Getting Started
@@ -131,7 +131,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                     </section>
                                 </TabsContent>
 
-                                <TabsContent value="graph" className="space-y-16 mt-0">
+                                <TabsContent value="graph" className="space-y-16 mt-0 pb-[15px]">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
                                             <Terminal className="h-5 w-5 text-primary" /> Graph Visualizations
@@ -199,7 +199,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                     </section>
                                 </TabsContent>
 
-                                <TabsContent value="diff" className="space-y-16 mt-0">
+                                <TabsContent value="diff" className="space-y-16 mt-0 pb-[15px]">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
                                             <FileCode className="h-5 w-5 text-primary" /> Internal Diff & Blame
@@ -230,7 +230,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                     </section>
                                 </TabsContent>
 
-                                <TabsContent value="advanced" className="space-y-16 mt-0">
+                                <TabsContent value="advanced" className="space-y-16 mt-0 pb-[15px]">
                                     <section className="space-y-4">
                                         <h3 className="text-xl font-bold flex items-center gap-3">
                                             <Zap className="h-5 w-5 text-primary" /> Power Workflows
@@ -304,7 +304,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                     </section>
                                 </TabsContent>
 
-                                <TabsContent value="shortcuts" className="mt-0">
+                                <TabsContent value="shortcuts" className="mt-0 pb-[15px]">
                                     <div className="grid grid-cols-1 gap-4 max-w-2xl">
                                         {[
                                             { key: 'Cmd/Ctrl + K', desc: 'Global Command Palette' },

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -20,6 +20,7 @@ import FileTree from '@/components/FileTree';
 import RebaseDialog from '@/components/RebaseDialog';
 import BisectControls from '@/components/BisectControls';
 import ReflogDialog from '@/components/ReflogDialog';
+import GlobalLoader from '@/components/GlobalLoader';
 import WorktreeDialog from '@/components/WorktreeDialog';
 import CommandPalette from '@/components/CommandPalette';
 import SettingsDialog from '@/components/SettingsDialog';
@@ -38,7 +39,7 @@ import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2 } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -156,7 +157,12 @@ export default function Home() {
   const [historyLimit, setHistoryLimit] = useState(50);
   const [commitStatuses, setCommitStatuses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphNonce, setGraphNonce] = useState(0);
   const [error, setError] = useState('');
+  
+  // Cache for graph output
+  const graphCache = useRef<Record<string, string>>({});
   const [actionLoading, setActionLoading] = useState(false);
   
   // Create Branch State
@@ -368,7 +374,7 @@ export default function Home() {
       if (!repoPath) return;
       const interval = setInterval(() => {
           console.log("Auto-fetching...");
-          fetchRepo(repoPath).then(() => loadRepo(historyLimit)).catch(console.error);
+          fetchRepo(repoPath).then(() => loadRepo(historyLimit, repoPath, true)).catch(console.error);
       }, 5 * 60 * 1000); // 5 minutes
       return () => clearInterval(interval);
   }, [repoPath, historyLimit]);
@@ -380,9 +386,9 @@ export default function Home() {
     localStorage.setItem('recentRepos', JSON.stringify(updated));
   };
 
-  const loadRepo = async (limit = historyLimit, path = repoPath) => {
+  const loadRepo = async (limit = historyLimit, path = repoPath, silent = false) => {
     if (!path) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError('');
     // Clear selection when opening a new repo
     if (limit === 50) {
@@ -405,9 +411,11 @@ export default function Home() {
       setBranches(branchData);
       setStashes(stashData || []);
 
-      // Load Graph using Active Preset
-      const activeCmd = graphViews[activeGraphView]?.command || defaultGraphViews.sourcetree.command;
-      getCustomGraph(path, activeCmd).then(output => setTextGraph(output)).catch(console.error);
+      // Update history limit state if it changed (ensures graph effect stays in sync)
+      if (limit !== historyLimit) setHistoryLimit(limit);
+      
+      // Trigger graph refresh via effect
+      setGraphNonce(n => n + 1);
       
       // Load Tags via Electron IPC
       getTags(path).then(tagStr => {
@@ -426,7 +434,7 @@ export default function Home() {
     } catch (err: any) {
       setError(err.message || 'Failed to load repository');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -469,9 +477,30 @@ export default function Home() {
   useEffect(() => {
       if (repoPath) {
           const activeCmd = graphViews[activeGraphView]?.command || defaultGraphViews.sourcetree.command;
-          getCustomGraph(repoPath, activeCmd).then(output => setTextGraph(output)).catch(console.error);
+          const cmdWithLimit = `${activeCmd} -n ${historyLimit}`;
+          
+          // Check cache (key by repo + command + limit + HEAD)
+          // We use the first commit ID (HEAD) as a cache key validator
+          const headSha = history[0]?.id;
+          const cacheKey = `${repoPath}|${activeGraphView}|${historyLimit}|${headSha}`;
+          
+          if (headSha && graphCache.current[cacheKey]) {
+              setTextGraph(graphCache.current[cacheKey]);
+              return;
+          }
+
+          setGraphLoading(true);
+          getCustomGraph(repoPath, cmdWithLimit)
+            .then(output => {
+                setTextGraph(output);
+                if (headSha) {
+                    graphCache.current[cacheKey] = output;
+                }
+            })
+            .catch(console.error)
+            .finally(() => setGraphLoading(false));
       }
-  }, [activeGraphView, repoPath]);
+  }, [activeGraphView, repoPath, historyLimit, graphNonce]);
 
   const handleBrowse = async () => {
       // Use window.require to bypass the bundler and access Electron at runtime
@@ -718,6 +747,28 @@ function isImage(path: string) {
 
   // Actions
   const handleCheckout = async (target: string) => {
+      // Don't do anything if we are already on this branch/commit
+      const currentBranch = branches.find(b => b.isCurrentRepositoryHead);
+      if (currentBranch && (currentBranch.name === target || currentBranch.commitId === target || currentBranch.commitId?.startsWith(target))) return;
+
+      // Check for uncommitted changes
+      const hasChanges = status?.files?.some((f: any) => f.status.includes("Modified") || f.status.includes("Staged") || f.status.includes("Untracked"));
+      
+      if (hasChanges) {
+          if (confirm("You have local changes. Stash them and checkout? \n\nClick OK to Stash & Checkout.\nClick Cancel to abort.")) {
+              setActionLoading(true);
+              try {
+                  await stashChanges(repoPath, `Auto-stash before checkout to ${target}`);
+              } catch (e: any) {
+                  setError("Failed to stash changes: " + e.message);
+                  setActionLoading(false);
+                  return;
+              }
+          } else {
+              return;
+          }
+      }
+
       setActionLoading(true);
       try {
           await checkout(repoPath, target);
@@ -1261,7 +1312,7 @@ function isImage(path: string) {
                             key={b.name} 
                             className="text-sm px-2 py-1 rounded truncate text-muted-foreground/70 hover:text-foreground hover:bg-muted cursor-pointer"
                             title={b.name}
-                            onClick={() => handleCheckout(b.name)}
+                            onClick={() => handleCheckout(b.name.replace(/^origin\//, ''))}
                         >
                           {b.name.replace('origin/', '')}
                         </div>
@@ -1664,13 +1715,6 @@ function isImage(path: string) {
               </div>
             </ScrollArea>
             
-            {/* Loading Overlay for Actions */}
-            {actionLoading && (
-                <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
-                    <span className="text-sm font-medium animate-pulse">Running Git Action...</span>
-                </div>
-            )}
-            
             {/* Commit Box (Only in WorkDir) */}
             {viewMode === 'workdir' && (
                 <div className="p-3 border-t bg-background space-y-2">
@@ -1909,7 +1953,12 @@ function isImage(path: string) {
                             )}
                         </div>
                     </div>
-                    <div className="flex-1 overflow-hidden h-full bg-slate-950">
+                    <div className="flex-1 overflow-hidden h-full bg-slate-950 relative">
+                        {graphLoading && (
+                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50 z-50">
+                                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                        )}
                         <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
                             <div className="p-6">
                                 <InteractiveTerminalGraph 
@@ -2118,6 +2167,10 @@ function isImage(path: string) {
               <span className="opacity-70">GitForge v0.1.0</span>
           </div>
       </div>
+      <GlobalLoader 
+        isVisible={loading || actionLoading} 
+        message={loading ? "Loading repository..." : "Processing..."} 
+      />
     </main>
   );
 }
