@@ -430,7 +430,7 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle('git:getTags', async (_, repoPath) => {
-      return runGit('git tag -n', repoPath);
+      return runGit('git tag --sort=-creatordate --format="%(refname:short)|%(subject)"', repoPath);
   });
 
   ipcMain.handle('git:createTag', async (_, { repoPath, name, message, sha }) => {

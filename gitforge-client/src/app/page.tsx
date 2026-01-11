@@ -16,6 +16,7 @@ import ImageDiffView from '@/components/ImageDiffView';
 import dynamic from 'next/dynamic';
 const TerminalPanel = dynamic(() => import('@/components/TerminalPanel'), { ssr: false });
 import FileSearchDialog from '@/components/FileSearchDialog';
+import SidebarSection from '@/components/SidebarSection';
 import FileTree from '@/components/FileTree';
 import RebaseDialog from '@/components/RebaseDialog';
 import BisectControls from '@/components/BisectControls';
@@ -39,7 +40,7 @@ import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2 } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -420,9 +421,8 @@ export default function Home() {
       // Load Tags via Electron IPC
       getTags(path).then(tagStr => {
           const parsed = tagStr.split('\n').filter(Boolean).map((line: string) => {
-              const parts = line.trim().split(/\s+/);
-              const name = parts[0];
-              return { name, message: line.substring(name.length).trim() };
+              const [name, message] = line.split('|');
+              return { name, message };
           });
           setTags(parsed);
       }).catch(e => console.error("Tags not supported", e));
@@ -1216,8 +1216,20 @@ function isImage(path: string) {
             </div>
         </div>
         <Separator />
+        <div className="p-4 pb-0 space-y-2">
+            <Button 
+                variant={viewMode === 'workdir' ? 'secondary' : 'outline'}
+                size="sm" 
+                className="w-full justify-start"
+                onClick={() => { setViewMode('workdir'); setSelectedFile(null); setDiffData(null); }}
+            >
+                <FolderOpen className="h-4 w-4 mr-2" /> Working Directory
+            </Button>
+            <SidebarIssuesSection repoPath={repoPath} />
+            <SidebarPRSection repoPath={repoPath} onCheckout={handleCheckout} />
+        </div>
         <ScrollArea className="flex-1 p-4">
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input 
@@ -1229,8 +1241,7 @@ function isImage(path: string) {
             </div>
 
             {recentRepos.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Recent Repositories</h3>
+                <SidebarSection title="Recent Repositories" defaultOpen={false}>
                   <div className="space-y-1">
                       {recentRepos.map(path => (
                         <div 
@@ -1243,23 +1254,24 @@ function isImage(path: string) {
                         </div>
                       ))}
                   </div>
-                </div>
+                </SidebarSection>
             )}
             
-            <div>
-                <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center px-2">
-                    <span>Workspaces</span>
+            <SidebarSection 
+                title="Workspaces" 
+                defaultOpen={false}
+                action={
                     <div className="flex gap-1">
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsGlobalSearchOpen(true)} title="Global Workspace Search">
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); setIsGlobalSearchOpen(true); }} title="Global Workspace Search">
                             <Globe className="h-3 w-3" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => setIsWorkspaceOpen(true)}>
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); setIsWorkspaceOpen(true); }}>
                             <Folder className="h-3 w-3" />
                         </Button>
                     </div>
-                </h3>
-                <ScrollArea className="max-h-32">
-                    <div className="space-y-1">
+                }
+            >
+                <div className="space-y-1">
                         {workspaces.map(ws => (
                             <div key={ws.id}>
                                 <div 
@@ -1288,8 +1300,7 @@ function isImage(path: string) {
                         ))}
                         {workspaces.length === 0 && <div className="text-xs text-muted-foreground px-2 italic">No workspaces</div>}
                     </div>
-                </ScrollArea>
-            </div>
+            </SidebarSection>
 
             {bisectActive && (
                 <BisectControls 
@@ -1301,9 +1312,7 @@ function isImage(path: string) {
                 />
             )}
 
-            <div>
-              <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Local Branches</h3>
-              <ScrollArea className="max-h-64">
+            <SidebarSection title="Local Branches">
                   <div className="space-y-1">
                       {branches.filter(b => !b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
                         <div 
@@ -1319,15 +1328,12 @@ function isImage(path: string) {
                         </div>
                       ))}
                   </div>
-              </ScrollArea>
-            </div>
+            </SidebarSection>
 
             <SubmoduleSection repoPath={repoPath} />
             
             {branches.some(b => b.isRemote) && (
-                <div>
-                  <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Remote Branches</h3>
-                  <ScrollArea className="max-h-64">
+                <SidebarSection title="Remote Branches" defaultOpen={false}>
                       <div className="space-y-1">
                           {branches.filter(b => b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
                             <div 
@@ -1340,44 +1346,21 @@ function isImage(path: string) {
                             </div>
                           ))}
                       </div>
-                  </ScrollArea>
-                </div>
+                </SidebarSection>
             )}
             
-            {tags.length > 0 && (
-                <div>
-                    <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Tags</h3>
-                    <ScrollArea className="max-h-32">
-                        <div className="space-y-1">
-                            {tags.map((t, i) => (
-                                <ContextMenu key={i}>
-                                    <ContextMenuTrigger>
-                                        <div className="text-sm px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default flex items-center gap-2">
-                                            <Tag className="h-3 w-3" />
-                                            <span className="truncate" title={t.message}>{t.name}</span>
-                                        </div>
-                                    </ContextMenuTrigger>
-                                    <ContextMenuContent>
-                                        <ContextMenuItem onClick={() => handleDeleteTag(t.name)}>
-                                            <Trash className="w-3 h-3 mr-2" /> Delete Tag
-                                        </ContextMenuItem>
-                                    </ContextMenuContent>
-                                </ContextMenu>
-                            ))}
-                        </div>
-                    </ScrollArea>
-                </div>
-            )}
+
 
             {stashes.length > 0 && (
-                <div>
-                    <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground flex justify-between items-center">
-                        <span>Stashes</span>
-                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleStashPop(0)} title="Pop Latest Stash">
+                <SidebarSection 
+                    title="Stashes" 
+                    defaultOpen={false}
+                    action={
+                        <Button variant="ghost" size="icon" className="h-4 w-4" onClick={(e) => { e.stopPropagation(); handleStashPop(0); }} title="Pop Latest Stash">
                             <Archive className="h-3 w-3" />
                         </Button>
-                    </h3>
-                    <ScrollArea className="max-h-32">
+                    }
+                >
                         <div className="space-y-1">
                             {stashes.map((s, i) => (
                                 <ContextMenu key={i}>
@@ -1418,25 +1401,38 @@ function isImage(path: string) {
                                 </ContextMenu>
                             ))}
                         </div>
-                    </ScrollArea>
-                </div>
+                </SidebarSection>
+            )}
+
+            {tags.length > 0 && (
+                <SidebarSection title="Tags" defaultOpen={false}>
+                        <div className="space-y-1">
+                            {tags.map((t, i) => (
+                                <ContextMenu key={i}>
+                                    <ContextMenuTrigger>
+                                        <div 
+                                            className="text-sm px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-pointer flex items-center gap-2 truncate"
+                                            title={t.message || t.name}
+                                        >
+                                            <Tag className="h-3 w-3 flex-shrink-0" />
+                                            <span className="truncate">{t.name}</span>
+                                        </div>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent>
+                                        <ContextMenuItem onClick={() => handleCheckout(t.name)}>
+                                            <GitBranch className="w-3 h-3 mr-2" /> Checkout Tag
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onClick={() => handleDeleteTag(t.name)}>
+                                            <Trash className="w-3 h-3 mr-2" /> Delete Tag
+                                        </ContextMenuItem>
+                                    </ContextMenuContent>
+                                </ContextMenu>
+                            ))}
+                        </div>
+                </SidebarSection>
             )}
             
-            <SidebarPRSection repoPath={repoPath} onCheckout={handleCheckout} />
-            <SidebarIssuesSection repoPath={repoPath} />
 
-            <Separator className="my-4" />
-            
-            <div className="flex flex-col gap-2">
-                <Button 
-                    variant={viewMode === 'workdir' ? 'secondary' : 'ghost'}
-                    size="sm" 
-                    className="justify-start"
-                    onClick={() => { setViewMode('workdir'); setSelectedFile(null); setDiffData(null); }}
-                >
-                    Working Directory
-                </Button>
-            </div>
           </div>
         </ScrollArea>
       </div>
