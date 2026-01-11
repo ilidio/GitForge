@@ -1258,35 +1258,37 @@ function isImage(path: string) {
                         </Button>
                     </div>
                 </h3>
-                <div className="space-y-1">
-                    {workspaces.map(ws => (
-                        <div key={ws.id}>
-                            <div 
-                                className={`text-sm px-2 py-1 rounded cursor-pointer flex items-center gap-2 hover:bg-muted ${activeWorkspaceId === ws.id ? 'font-bold' : ''}`}
-                                onClick={() => setActiveWorkspaceId(ws.id === activeWorkspaceId ? null : ws.id)}
-                            >
-                                <Folder className="h-3 w-3 text-blue-400" />
-                                <span className="truncate">{ws.name}</span>
-                            </div>
-                            {activeWorkspaceId === ws.id && (
-                                <div className="ml-4 border-l pl-2 mt-1 space-y-1">
-                                    {ws.repos.map((r: string) => (
-                                        <div 
-                                            key={r}
-                                            className={`text-xs px-2 py-1 rounded cursor-pointer truncate ${repoPath === r ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'}`}
-                                            onClick={() => { setRepoPath(r); loadRepo(50, r); }}
-                                            title={r}
-                                        >
-                                            {r.split('/').pop()}
-                                        </div>
-                                    ))}
-                                    {ws.repos.length === 0 && <div className="text-[10px] text-muted-foreground italic px-2">Empty</div>}
+                <ScrollArea className="max-h-32">
+                    <div className="space-y-1">
+                        {workspaces.map(ws => (
+                            <div key={ws.id}>
+                                <div 
+                                    className={`text-sm px-2 py-1 rounded cursor-pointer flex items-center gap-2 hover:bg-muted ${activeWorkspaceId === ws.id ? 'font-bold' : ''}`}
+                                    onClick={() => setActiveWorkspaceId(ws.id === activeWorkspaceId ? null : ws.id)}
+                                >
+                                    <Folder className="h-3 w-3 text-blue-400" />
+                                    <span className="truncate">{ws.name}</span>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                    {workspaces.length === 0 && <div className="text-xs text-muted-foreground px-2 italic">No workspaces</div>}
-                </div>
+                                {activeWorkspaceId === ws.id && (
+                                    <div className="ml-4 border-l pl-2 mt-1 space-y-1">
+                                        {ws.repos.map((r: string) => (
+                                            <div 
+                                                key={r}
+                                                className={`text-xs px-2 py-1 rounded cursor-pointer truncate ${repoPath === r ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-muted-foreground'}`}
+                                                onClick={() => { setRepoPath(r); loadRepo(50, r); }}
+                                                title={r}
+                                            >
+                                                {r.split('/').pop()}
+                                            </div>
+                                        ))}
+                                        {ws.repos.length === 0 && <div className="text-[10px] text-muted-foreground italic px-2">Empty</div>}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {workspaces.length === 0 && <div className="text-xs text-muted-foreground px-2 italic">No workspaces</div>}
+                    </div>
+                </ScrollArea>
             </div>
 
             {bisectActive && (
@@ -1301,21 +1303,23 @@ function isImage(path: string) {
 
             <div>
               <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Local Branches</h3>
-              <div className="space-y-1">
-                  {branches.filter(b => !b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
-                    <div 
-                        key={b.name} 
-                        className={`text-sm px-2 py-1 rounded cursor-grab active:cursor-grabbing truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted text-muted-foreground'}`}
-                        title={b.name}
-                        onClick={() => handleCheckout(b.name)}
-                        draggable="true"
-                        onDragStart={(e) => handleBranchDragStart(e, b)}
-                    >
-                      {b.isCurrentRepositoryHead && <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
-                      <span className="truncate">{b.name}</span>
-                    </div>
-                  ))}
-              </div>
+              <ScrollArea className="max-h-64">
+                  <div className="space-y-1">
+                      {branches.filter(b => !b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
+                        <div 
+                            key={b.name} 
+                            className={`text-sm px-2 py-1 rounded cursor-grab active:cursor-grabbing truncate flex items-center gap-2 ${b.isCurrentRepositoryHead ? 'bg-primary/10 text-primary font-bold' : 'hover:bg-muted text-muted-foreground'}`}
+                            title={b.name}
+                            onClick={() => handleCheckout(b.name)}
+                            draggable="true"
+                            onDragStart={(e) => handleBranchDragStart(e, b)}
+                        >
+                          {b.isCurrentRepositoryHead && <div className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
+                          <span className="truncate">{b.name}</span>
+                        </div>
+                      ))}
+                  </div>
+              </ScrollArea>
             </div>
 
             <SubmoduleSection repoPath={repoPath} />
@@ -1323,41 +1327,45 @@ function isImage(path: string) {
             {branches.some(b => b.isRemote) && (
                 <div>
                   <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Remote Branches</h3>
-                  <div className="space-y-1">
-                      {branches.filter(b => b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
-                        <div 
-                            key={b.name} 
-                            className="text-sm px-2 py-1 rounded truncate text-muted-foreground/70 hover:text-foreground hover:bg-muted cursor-pointer"
-                            title={b.name}
-                            onClick={() => handleCheckout(b.name.replace(/^origin\//, ''))}
-                        >
-                          {b.name.replace('origin/', '')}
-                        </div>
-                      ))}
-                  </div>
+                  <ScrollArea className="max-h-64">
+                      <div className="space-y-1">
+                          {branches.filter(b => b.isRemote && b.name.toLowerCase().includes(branchSearch.toLowerCase())).map(b => (
+                            <div 
+                                key={b.name} 
+                                className="text-sm px-2 py-1 rounded truncate text-muted-foreground/70 hover:text-foreground hover:bg-muted cursor-pointer"
+                                title={b.name}
+                                onClick={() => handleCheckout(b.name.replace(/^origin\//, ''))}
+                            >
+                              {b.name.replace('origin/', '')}
+                            </div>
+                          ))}
+                      </div>
+                  </ScrollArea>
                 </div>
             )}
             
             {tags.length > 0 && (
                 <div>
                     <h3 className="text-sm font-medium mb-2 uppercase text-muted-foreground">Tags</h3>
-                    <div className="space-y-1">
-                        {tags.map((t, i) => (
-                            <ContextMenu key={i}>
-                                <ContextMenuTrigger>
-                                    <div className="text-sm px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default flex items-center gap-2">
-                                        <Tag className="h-3 w-3" />
-                                        <span className="truncate" title={t.message}>{t.name}</span>
-                                    </div>
-                                </ContextMenuTrigger>
-                                <ContextMenuContent>
-                                    <ContextMenuItem onClick={() => handleDeleteTag(t.name)}>
-                                        <Trash className="w-3 h-3 mr-2" /> Delete Tag
-                                    </ContextMenuItem>
-                                </ContextMenuContent>
-                            </ContextMenu>
-                        ))}
-                    </div>
+                    <ScrollArea className="max-h-32">
+                        <div className="space-y-1">
+                            {tags.map((t, i) => (
+                                <ContextMenu key={i}>
+                                    <ContextMenuTrigger>
+                                        <div className="text-sm px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default flex items-center gap-2">
+                                            <Tag className="h-3 w-3" />
+                                            <span className="truncate" title={t.message}>{t.name}</span>
+                                        </div>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent>
+                                        <ContextMenuItem onClick={() => handleDeleteTag(t.name)}>
+                                            <Trash className="w-3 h-3 mr-2" /> Delete Tag
+                                        </ContextMenuItem>
+                                    </ContextMenuContent>
+                                </ContextMenu>
+                            ))}
+                        </div>
+                    </ScrollArea>
                 </div>
             )}
 
@@ -1369,46 +1377,48 @@ function isImage(path: string) {
                             <Archive className="h-3 w-3" />
                         </Button>
                     </h3>
-                    <div className="space-y-1">
-                        {stashes.map((s, i) => (
-                            <ContextMenu key={i}>
-                                <ContextMenuTrigger>
-                                    <div className="group flex items-center justify-between text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default">
-                                        <span 
-                                            className="truncate cursor-pointer hover:text-foreground" 
-                                            title="Click to view stash content"
-                                            onClick={() => {
-                                                handleCommitClick({
-                                                    id: `stash@{${i}}`,
-                                                    message: s.message || `On ${branches.find(b => b.isCurrentRepositoryHead)?.name}: Stash`,
-                                                    author: 'Stash',
-                                                    timestamp: new Date().toISOString()
-                                                });
-                                            }}
-                                        >
-                                            {s.message || `stash@{${i}}`}
-                                        </span>
-                                    </div>
-                                </ContextMenuTrigger>
-                                <ContextMenuContent>
-                                    <ContextMenuItem onClick={() => handleStashPop(i)}>
-                                        Pop Stash
-                                    </ContextMenuItem>
-                                    <ContextMenuItem onClick={async () => {
-                                        if(!confirm("Drop this stash?")) return;
-                                        setActionLoading(true);
-                                        try {
-                                            await dropStashElectron(repoPath, i);
-                                            await loadRepo(historyLimit);
-                                        } catch(e: any) { setError(e.message); }
-                                        finally { setActionLoading(false); }
-                                    }}>
-                                        Drop Stash
-                                    </ContextMenuItem>
-                                </ContextMenuContent>
-                            </ContextMenu>
-                        ))}
-                    </div>
+                    <ScrollArea className="max-h-32">
+                        <div className="space-y-1">
+                            {stashes.map((s, i) => (
+                                <ContextMenu key={i}>
+                                    <ContextMenuTrigger>
+                                        <div className="group flex items-center justify-between text-xs px-2 py-1 rounded hover:bg-muted text-muted-foreground cursor-default">
+                                            <span 
+                                                className="truncate cursor-pointer hover:text-foreground" 
+                                                title="Click to view stash content"
+                                                onClick={() => {
+                                                    handleCommitClick({
+                                                        id: `stash@{${i}}`,
+                                                        message: s.message || `On ${branches.find(b => b.isCurrentRepositoryHead)?.name}: Stash`,
+                                                        author: 'Stash',
+                                                        timestamp: new Date().toISOString()
+                                                    });
+                                                }}
+                                            >
+                                                {s.message || `stash@{${i}}`}
+                                            </span>
+                                        </div>
+                                    </ContextMenuTrigger>
+                                    <ContextMenuContent>
+                                        <ContextMenuItem onClick={() => handleStashPop(i)}>
+                                            Pop Stash
+                                        </ContextMenuItem>
+                                        <ContextMenuItem onClick={async () => {
+                                            if(!confirm("Drop this stash?")) return;
+                                            setActionLoading(true);
+                                            try {
+                                                await dropStashElectron(repoPath, i);
+                                                await loadRepo(historyLimit);
+                                            } catch(e: any) { setError(e.message); }
+                                            finally { setActionLoading(false); }
+                                        }}>
+                                            Drop Stash
+                                        </ContextMenuItem>
+                                    </ContextMenuContent>
+                                </ContextMenu>
+                            ))}
+                        </div>
+                    </ScrollArea>
                 </div>
             )}
             
@@ -1692,134 +1702,173 @@ function isImage(path: string) {
                 </ContextMenu>
             )}
 
-            <ScrollArea className="flex-1">
-              <div className="p-2">
+            <div className="flex-1 flex flex-col min-h-0 relative">
                 {viewMode === 'workdir' ? (
                     <>
                         {/* Staged Changes */}
-                        <div className="mb-4">
-                            <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                                <span>Staged Changes ({status?.files?.filter((f: any) => f.status.includes("Staged")).length || 0})</span>
-                                <div className="flex gap-1">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-5 px-2 text-[10px]"
-                                        onClick={async () => {
-                                            const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
-                                            if (staged.length === 0) return;
-                                            setActionLoading(true);
-                                            try {
-                                                for (const f of staged) {
-                                                    await unstageFile(repoPath, f.path);
-                                                }
-                                                await loadRepo(historyLimit);
-                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                                        }}
-                                    >
-                                        Unstage All
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        onClick={async () => {
-                                            const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
-                                            if (staged.length === 0) return;
-                                            if (!confirm("Discard all staged changes? This cannot be undone.")) return;
-                                            setActionLoading(true);
-                                            try {
-                                                for (const f of staged) {
-                                                    await discardPath(repoPath, f.path);
-                                                }
-                                                await loadRepo(historyLimit);
-                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                                        }}
-                                    >
-                                        Discard All
-                                    </Button>
+                        <div className="flex-1 flex flex-col min-h-0 border-b">
+                            <div className="p-2 pb-0 flex-shrink-0">
+                                <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                                    <span>Staged Changes ({status?.files?.filter((f: any) => f.status.includes("Staged")).length || 0})</span>
+                                    <div className="flex gap-1">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-5 px-2 text-[10px]"
+                                            onClick={async () => {
+                                                const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
+                                                if (staged.length === 0) return;
+                                                setActionLoading(true);
+                                                try {
+                                                    for (const f of staged) {
+                                                        await unstageFile(repoPath, f.path);
+                                                    }
+                                                    await loadRepo(historyLimit);
+                                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                            }}
+                                        >
+                                            Unstage All
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={async () => {
+                                                const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
+                                                if (staged.length === 0) return;
+                                                if (!confirm("Discard all staged changes? This cannot be undone.")) return;
+                                                setActionLoading(true);
+                                                try {
+                                                    for (const f of staged) {
+                                                        await discardPath(repoPath, f.path);
+                                                    }
+                                                    await loadRepo(historyLimit);
+                                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                            }}
+                                        >
+                                            Discard All
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
-                            <FileTree 
-                                files={status?.files?.filter((f: any) => f.status.includes("Staged")) || []}
-                                selectedFile={selectedFile}
-                                onFileClick={(path) => handleFileClick(path, true)}
-                                onToggleStage={async (file) => {
-                                    try { await unstageFile(repoPath, file.path); await loadRepo(historyLimit); }
-                                    catch(e: any) { setError(e.message); }
-                                }}
-                                viewMode={viewMode}
-                                onResolve={async (file) => {
-                                    try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
-                                    catch (err: any) { setError(err.message); }
-                                }}
-                                onIgnore={handleIgnoreFile}
-                                onHistory={handleFileHistory}
-                                onDelete={async (path) => {
-                                    if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
-                                    try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
-                                }}
-                                onRename={async (oldPath, newPath) => {
-                                    try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
-                                }}
-                                onStash={handleStashFile}
-                                onDiscard={handleDiscardFile}
-                                checked={true}
-                            />
+                            <ScrollArea className="flex-1">
+                                <div className="p-2 pt-0">
+                                    <FileTree 
+                                        files={status?.files?.filter((f: any) => f.status.includes("Staged")) || []}
+                                        selectedFile={selectedFile}
+                                        onFileClick={(path) => handleFileClick(path, true)}
+                                        onToggleStage={async (file) => {
+                                            try { await unstageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                            catch(e: any) { setError(e.message); }
+                                        }}
+                                        viewMode={viewMode}
+                                        onResolve={async (file) => {
+                                            try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                            catch (err: any) { setError(err.message); }
+                                        }}
+                                        onIgnore={handleIgnoreFile}
+                                        onHistory={handleFileHistory}
+                                        onDelete={async (path) => {
+                                            if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
+                                            try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                        }}
+                                        onRename={async (oldPath, newPath) => {
+                                            try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                        }}
+                                        onStash={handleStashFile}
+                                        onDiscard={handleDiscardFile}
+                                        checked={true}
+                                    />
+                                </div>
+                            </ScrollArea>
                         </div>
 
                         {/* Unstaged Changes */}
-                        <div>
-                            <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                                <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")).length || 0})</span>
-                                <div className="flex gap-1">
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-5 px-2 text-[10px]"
-                                        onClick={async () => {
-                                            const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
-                                            if (unstaged.length === 0) return;
-                                            setActionLoading(true);
-                                            try {
-                                                for (const f of unstaged) {
-                                                    await stageFile(repoPath, f.path);
-                                                }
-                                                await loadRepo(historyLimit);
-                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                                        }}
-                                    >
-                                        Stage All
-                                    </Button>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
-                                        onClick={async () => {
-                                            const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
-                                            if (unstaged.length === 0) return;
-                                            if (!confirm("Discard all unstaged changes? This cannot be undone.")) return;
-                                            setActionLoading(true);
-                                            try {
-                                                for (const f of unstaged) {
-                                                    await discardUnstaged(repoPath, f.path);
-                                                }
-                                                await loadRepo(historyLimit);
-                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
-                                        }}
-                                    >
-                                        Discard All
-                                    </Button>
+                        <div className="flex-1 flex flex-col min-h-0">
+                            <div className="p-2 pb-0 flex-shrink-0">
+                                <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                                    <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")).length || 0})</span>
+                                    <div className="flex gap-1">
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-5 px-2 text-[10px]"
+                                            onClick={async () => {
+                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                                if (unstaged.length === 0) return;
+                                                setActionLoading(true);
+                                                try {
+                                                    for (const f of unstaged) {
+                                                        await stageFile(repoPath, f.path);
+                                                    }
+                                                    await loadRepo(historyLimit);
+                                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                            }}
+                                        >
+                                            Stage All
+                                        </Button>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            onClick={async () => {
+                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                                if (unstaged.length === 0) return;
+                                                if (!confirm("Discard all unstaged changes? This cannot be undone.")) return;
+                                                setActionLoading(true);
+                                                try {
+                                                    for (const f of unstaged) {
+                                                        await discardUnstaged(repoPath, f.path);
+                                                    }
+                                                    await loadRepo(historyLimit);
+                                                } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                            }}
+                                        >
+                                            Discard All
+                                        </Button>
+                                    </div>
                                 </div>
                             </div>
+                            <ScrollArea className="flex-1">
+                                <div className="p-2 pt-0">
+                                    <FileTree 
+                                        files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || []}
+                                        selectedFile={selectedFile}
+                                        onFileClick={(path) => handleFileClick(path, false)}
+                                        onToggleStage={async (file) => {
+                                            try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                            catch(e: any) { setError(e.message); }
+                                        }}
+                                        viewMode={viewMode}
+                                        onResolve={async (file) => {
+                                            try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                            catch (err: any) { setError(err.message); }
+                                        }}
+                                        onIgnore={handleIgnoreFile}
+                                        onHistory={handleFileHistory}
+                                        onDelete={async (path) => {
+                                            if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
+                                            try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                        }}
+                                        onRename={async (oldPath, newPath) => {
+                                            try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                        }}
+                                        onStash={handleStashFile}
+                                        onDiscard={handleDiscardFile}
+                                        checked={false}
+                                    />
+                                </div>
+                            </ScrollArea>
+                        </div>
+                    </>
+                ) : (
+                    <ScrollArea className="flex-1">
+                        <div className="p-2">
                             <FileTree 
-                                files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || []}
+                                files={commitFiles}
                                 selectedFile={selectedFile}
-                                onFileClick={(path) => handleFileClick(path, false)}
-                                onToggleStage={async (file) => {
-                                    try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
-                                    catch(e: any) { setError(e.message); }
-                                }}
+                                onFileClick={handleFileClick}
+                                onToggleStage={undefined}
                                 viewMode={viewMode}
                                 onResolve={async (file) => {
                                     try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
@@ -1831,42 +1880,17 @@ function isImage(path: string) {
                                     if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
                                     try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
                                 }}
-                                onRename={async (oldPath, newPath) => {
-                                    try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
-                                }}
-                                onStash={handleStashFile}
-                                onDiscard={handleDiscardFile}
-                                checked={false}
                             />
                         </div>
-                    </>
-                ) : (
-                    <FileTree 
-                        files={commitFiles}
-                        selectedFile={selectedFile}
-                        onFileClick={handleFileClick}
-                        onToggleStage={undefined}
-                        viewMode={viewMode}
-                        onResolve={async (file) => {
-                            try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
-                            catch (err: any) { setError(err.message); }
-                        }}
-                        onIgnore={handleIgnoreFile}
-                        onHistory={handleFileHistory}
-                        onDelete={async (path) => {
-                            if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
-                            try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
-                        }}
-                    />
+                    </ScrollArea>
                 )}
                 
                 {((viewMode === 'workdir' ? !status?.files?.length : !commitFiles.length)) && repoPath && !loading && (
-                  <div className="text-sm text-muted-foreground p-8 text-center italic">
+                  <div className="text-sm text-muted-foreground p-8 text-center italic absolute inset-0 flex items-center justify-center pointer-events-none">
                       {viewMode === 'workdir' ? 'Clean working directory' : 'No changes in this commit'}
                   </div>
                 )}
-              </div>
-            </ScrollArea>
+            </div>
             
             {/* Commit Box (Only in WorkDir) */}
             {viewMode === 'workdir' && (
