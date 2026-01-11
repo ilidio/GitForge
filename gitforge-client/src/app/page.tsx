@@ -7,8 +7,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { getFileDiff, stageFile, unstageFile, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase, getRepoStatus, getBranches } from '@/lib/api';
-import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary } from '@/lib/electron';
+import { getFileDiff, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
+import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged } from '@/lib/electron';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
 import PatchView from '@/components/PatchView';
@@ -599,32 +599,33 @@ function isImage(path: string) {
     return /\.(png|jpg|jpeg|gif|svg|webp|bmp)$/i.test(path);
 }
 
-  const handleFileClick = async (filePath: string) => {
+  const handleFileClick = async (filePath: string, isStagedView?: boolean) => {
     setSelectedFile(filePath);
     setIsPatchMode(false);
     try {
         let diff;
+        
+        // Determine staging status for workdir view
+        // Priority: Explicit argument > Fallback to status check
+        let isStaged = false;
+        if (viewMode === 'workdir') {
+            const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
+            isStaged = isStagedView !== undefined 
+                ? isStagedView 
+                : (fileStatus.includes('Index') || fileStatus === 'Staged');
+        }
+
         if (isImage(filePath)) {
             // Load binary data
             const originalBase64 = await getFileContentBinary(repoPath, 'HEAD', filePath);
             let modifiedBase64 = null;
             
             if (viewMode === 'workdir') {
-                const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
-                const isStaged = fileStatus.includes('Index') || fileStatus === 'Staged';
                 if (isStaged) {
                     modifiedBase64 = await getFileContentBinary(repoPath, '', filePath); // git show :path
                 }
-                // If workdir unstaged, we can use file:// protocol or read it.
-                // For simplicity let's assume we read it via FS or user sees the staged version if staged.
-                // Or we can use a special "workdir" ref logic in main.js? 
-                // Let's just use empty string ref for staged, but for workdir we need fs.readFile.
-                // But getFileContentBinary does `git show`.
-                // Let's assume we compare HEAD vs Workdir.
-                // Workdir image: Use URL.createObjectURL? No, local file path.
-                // But Electron renderer can't access local files directly without `webSecurity: false` or `protocol` handler.
-                // We'll rely on the fact that `next dev` won't serve it.
-                // So let's skip modified for workdir image for now unless staged.
+                // Unstaged images in workdir are tricky to read in Electron without file protocol, 
+                // skipping for now or user sees broken image if not staged.
             } else {
                 modifiedBase64 = await getFileContentBinary(repoPath, selectedCommit.id, filePath);
             }
@@ -632,12 +633,9 @@ function isImage(path: string) {
             diff = {
                 isImage: true,
                 originalUrl: originalBase64 ? `data:image/png;base64,${originalBase64}` : '',
-                modifiedUrl: modifiedBase64 ? `data:image/png;base64,${modifiedBase64}` : '' // Fallback needed
+                modifiedUrl: modifiedBase64 ? `data:image/png;base64,${modifiedBase64}` : ''
             };
         } else if (viewMode === 'workdir') {
-            const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
-            const isStaged = fileStatus.includes('Index') || fileStatus === 'Staged';
-            
             const details = await getDiffDetails(repoPath, filePath, isStaged);
             
             diff = {
@@ -855,6 +853,25 @@ function isImage(path: string) {
           await loadRepo(historyLimit);
       } catch (err: any) {
           setError(err.message);
+      }
+  };
+
+  const handleDiscardFile = async (path: string, isStaged?: boolean) => {
+      if (!confirm(`Discard changes to ${path}? This cannot be undone.`)) return;
+      setActionLoading(true);
+      try {
+          // If staged view, we discard everything to HEAD (nuke)
+          // If unstaged view, we only discard unstaged changes (revert to Index)
+          if (isStaged) {
+              await discardPath(repoPath, path);
+          } else {
+              await discardUnstaged(repoPath, path);
+          }
+          await loadRepo(historyLimit);
+      } catch (e: any) {
+          setError(e.message);
+      } finally {
+          setActionLoading(false);
       }
   };
 
@@ -1677,35 +1694,171 @@ function isImage(path: string) {
 
             <ScrollArea className="flex-1">
               <div className="p-2">
-                <FileTree 
-                    files={viewMode === 'workdir' ? status?.files || [] : commitFiles}
-                    selectedFile={selectedFile}
-                    onFileClick={handleFileClick}
-                    onToggleStage={toggleStage}
-                    viewMode={viewMode}
-                    onResolve={async (file) => {
-                        try {
-                            await stageFile(repoPath, file.path);
-                            await loadRepo(historyLimit);
-                        } catch (err: any) { setError(err.message); }
-                    }}
-                    onIgnore={handleIgnoreFile}
-                    onHistory={handleFileHistory}
-                    onDelete={async (path) => {
-                        if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
-                        try {
-                            await gitRm(repoPath, path);
-                            await loadRepo(historyLimit);
-                        } catch(e: any) { setError(e.message); }
-                    }}
-                    onRename={async (oldPath, newPath) => {
-                        try {
-                            await gitMv(repoPath, oldPath, newPath);
-                            await loadRepo(historyLimit);
-                        } catch(e: any) { setError(e.message); }
-                    }}
-                    onStash={handleStashFile}
-                />
+                {viewMode === 'workdir' ? (
+                    <>
+                        {/* Staged Changes */}
+                        <div className="mb-4">
+                            <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                                <span>Staged Changes ({status?.files?.filter((f: any) => f.status.includes("Staged")).length || 0})</span>
+                                <div className="flex gap-1">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-2 text-[10px]"
+                                        onClick={async () => {
+                                            const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
+                                            if (staged.length === 0) return;
+                                            setActionLoading(true);
+                                            try {
+                                                for (const f of staged) {
+                                                    await unstageFile(repoPath, f.path);
+                                                }
+                                                await loadRepo(historyLimit);
+                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                        }}
+                                    >
+                                        Unstage All
+                                    </Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={async () => {
+                                            const staged = status?.files?.filter((f: any) => f.status.includes("Staged")) || [];
+                                            if (staged.length === 0) return;
+                                            if (!confirm("Discard all staged changes? This cannot be undone.")) return;
+                                            setActionLoading(true);
+                                            try {
+                                                for (const f of staged) {
+                                                    await discardPath(repoPath, f.path);
+                                                }
+                                                await loadRepo(historyLimit);
+                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                        }}
+                                    >
+                                        Discard All
+                                    </Button>
+                                </div>
+                            </div>
+                            <FileTree 
+                                files={status?.files?.filter((f: any) => f.status.includes("Staged")) || []}
+                                selectedFile={selectedFile}
+                                onFileClick={(path) => handleFileClick(path, true)}
+                                onToggleStage={async (file) => {
+                                    try { await unstageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                    catch(e: any) { setError(e.message); }
+                                }}
+                                viewMode={viewMode}
+                                onResolve={async (file) => {
+                                    try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                    catch (err: any) { setError(err.message); }
+                                }}
+                                onIgnore={handleIgnoreFile}
+                                onHistory={handleFileHistory}
+                                onDelete={async (path) => {
+                                    if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
+                                    try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                }}
+                                onRename={async (oldPath, newPath) => {
+                                    try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                }}
+                                onStash={handleStashFile}
+                                onDiscard={handleDiscardFile}
+                                checked={true}
+                            />
+                        </div>
+
+                        {/* Unstaged Changes */}
+                        <div>
+                            <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                                <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")).length || 0})</span>
+                                <div className="flex gap-1">
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-2 text-[10px]"
+                                        onClick={async () => {
+                                            const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                            if (unstaged.length === 0) return;
+                                            setActionLoading(true);
+                                            try {
+                                                for (const f of unstaged) {
+                                                    await stageFile(repoPath, f.path);
+                                                }
+                                                await loadRepo(historyLimit);
+                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                        }}
+                                    >
+                                        Stage All
+                                    </Button>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        onClick={async () => {
+                                            const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                            if (unstaged.length === 0) return;
+                                            if (!confirm("Discard all unstaged changes? This cannot be undone.")) return;
+                                            setActionLoading(true);
+                                            try {
+                                                for (const f of unstaged) {
+                                                    await discardUnstaged(repoPath, f.path);
+                                                }
+                                                await loadRepo(historyLimit);
+                                            } catch (e: any) { setError(e.message); } finally { setActionLoading(false); }
+                                        }}
+                                    >
+                                        Discard All
+                                    </Button>
+                                </div>
+                            </div>
+                            <FileTree 
+                                files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || []}
+                                selectedFile={selectedFile}
+                                onFileClick={(path) => handleFileClick(path, false)}
+                                onToggleStage={async (file) => {
+                                    try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                    catch(e: any) { setError(e.message); }
+                                }}
+                                viewMode={viewMode}
+                                onResolve={async (file) => {
+                                    try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                                    catch (err: any) { setError(err.message); }
+                                }}
+                                onIgnore={handleIgnoreFile}
+                                onHistory={handleFileHistory}
+                                onDelete={async (path) => {
+                                    if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
+                                    try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                }}
+                                onRename={async (oldPath, newPath) => {
+                                    try { await gitMv(repoPath, oldPath, newPath); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                                }}
+                                onStash={handleStashFile}
+                                onDiscard={handleDiscardFile}
+                                checked={false}
+                            />
+                        </div>
+                    </>
+                ) : (
+                    <FileTree 
+                        files={commitFiles}
+                        selectedFile={selectedFile}
+                        onFileClick={handleFileClick}
+                        onToggleStage={undefined}
+                        viewMode={viewMode}
+                        onResolve={async (file) => {
+                            try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
+                            catch (err: any) { setError(err.message); }
+                        }}
+                        onIgnore={handleIgnoreFile}
+                        onHistory={handleFileHistory}
+                        onDelete={async (path) => {
+                            if (!confirm(`Are you sure you want to delete ${path}? This uses 'git rm' and stages the deletion.`)) return;
+                            try { await gitRm(repoPath, path); await loadRepo(historyLimit); } catch(e: any) { setError(e.message); }
+                        }}
+                    />
+                )}
                 
                 {((viewMode === 'workdir' ? !status?.files?.length : !commitFiles.length)) && repoPath && !loading && (
                   <div className="text-sm text-muted-foreground p-8 text-center italic">

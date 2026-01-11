@@ -18,6 +18,8 @@ interface FileTreeProps {
     onDelete?: (path: string) => void;
     onRename?: (oldPath: string, newPath: string) => void;
     onStash?: (path: string) => void;
+    onDiscard?: (path: string, isStaged?: boolean) => void;
+    checked?: boolean; // Forced checkbox state
 }
 
 interface TreeNode {
@@ -28,7 +30,7 @@ interface TreeNode {
     fileData?: any; // For when a directory itself is a status item
 }
 
-export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash }: FileTreeProps) {
+export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash, onDiscard, checked }: FileTreeProps) {
     const buildTree = (files: any[]) => {
         const root: TreeNode = { name: '', path: '', children: {}, files: [] };
         files.forEach(file => {
@@ -81,20 +83,22 @@ export default function FileTree({ files, selectedFile, onFileClick, onToggleSta
                 onDelete={onDelete}
                 onRename={onRename}
                 onStash={onStash}
+                onDiscard={onDiscard}
+                checked={checked}
                 isRoot
             />
         </div>
     );
 }
 
-function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash, isRoot = false }: any) {
+function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash, onDiscard, checked, isRoot = false }: any) {
     const [isOpen, setIsOpen] = useState(true);
 
     const hasContent = Object.keys(node.children).length > 0 || node.files.length > 0;
     
     // If this folder node has fileData, it means it's a status item itself (e.g. untracked dir)
     const file = node.fileData;
-    const isStaged = file ? (file.status.includes("Index") || file.status === "Staged") : false;
+    const isStaged = checked !== undefined ? checked : (file ? (file.status.includes("Index") || file.status === "Staged") : false);
     const isConflicted = file ? file.status.includes("Conflicted") : false;
 
     // Folder Header Component
@@ -160,13 +164,18 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                                 <Eye className="w-3 h-3 mr-2" /> Add to .gitignore
                             </ContextMenuItem>
                             {viewMode === 'workdir' && (
-                                <ContextMenuItem onClick={() => onStash?.(file.path)}>
-                                    <Archive className="w-3 h-3 mr-2" /> Stash This
-                                </ContextMenuItem>
+                                <>
+                                    <ContextMenuItem onClick={() => onStash?.(file.path)}>
+                                        <Archive className="w-3 h-3 mr-2" /> Stash This
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onDiscard?.(file.path, isStaged)} className="text-destructive focus:text-destructive">
+                                        <Trash className="w-3 h-3 mr-2" /> Discard Changes
+                                    </ContextMenuItem>
+                                </>
                             )}
                             <ContextMenuSeparator />
                             <ContextMenuItem onClick={() => onDelete?.(file.path)}>
-                                <Trash className="w-3 h-3 mr-2" /> Delete
+                                <Trash className="w-3 h-3 mr-2" /> Delete File (git rm)
                             </ContextMenuItem>
                         </ContextMenuContent>
                     </ContextMenu>
@@ -192,12 +201,14 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                             onDelete={onDelete}
                             onRename={onRename}
                             onStash={onStash}
+                            onDiscard={onDiscard}
+                            checked={checked}
                         />
                     ))}
                     {node.files.sort((a: any, b: any) => a.path.localeCompare(b.path)).map((file: any) => {
                         const isDir = file.path.endsWith('/');
                         const fileName = file.path.replace(/\/$/, '').split('/').pop();
-                        const isStaged = file.status.includes("Index") || file.status === "Staged";
+                        const isStaged = checked !== undefined ? checked : (file.status.includes("Index") || file.status === "Staged");
                         const isConflicted = file.status.includes("Conflicted");
 
                         return (
@@ -254,13 +265,18 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                                         <FileText className="w-3 h-3 mr-2" /> File History
                                     </ContextMenuItem>
                                     {viewMode === 'workdir' && (
-                                        <ContextMenuItem onClick={() => onStash?.(file.path)}>
-                                            <Archive className="w-3 h-3 mr-2" /> Stash This File
-                                        </ContextMenuItem>
+                                        <>
+                                            <ContextMenuItem onClick={() => onStash?.(file.path)}>
+                                                <Archive className="w-3 h-3 mr-2" /> Stash This File
+                                            </ContextMenuItem>
+                                            <ContextMenuItem onClick={() => onDiscard?.(file.path)} className="text-destructive focus:text-destructive">
+                                                <Trash className="w-3 h-3 mr-2" /> Discard Changes
+                                            </ContextMenuItem>
+                                        </>
                                     )}
                                     <ContextMenuSeparator />
                                     <ContextMenuItem onClick={() => onDelete?.(file.path)}>
-                                        <Trash className="w-3 h-3 mr-2" /> Delete
+                                        <Trash className="w-3 h-3 mr-2" /> Delete File (git rm)
                                     </ContextMenuItem>
                                      <ContextMenuItem onClick={() => {
                                          const newName = prompt("New filename:", file.path);

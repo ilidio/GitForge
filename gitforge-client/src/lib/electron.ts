@@ -287,6 +287,26 @@ export async function gitMv(repoPath: string, oldPath: string, newPath: string) 
     return ipcRenderer.invoke('git:mv', { repoPath, oldPath, newPath });
 }
 
+export async function stageFile(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:stage', { repoPath, filePath });
+}
+
+export async function unstageFile(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:unstage', { repoPath, filePath });
+}
+
+export async function discardPath(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:discardPath', { repoPath, filePath });
+}
+
+export async function discardUnstaged(repoPath: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:discardUnstaged', { repoPath, filePath });
+}
+
 export async function getRepoStatus(repoPath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     const output = await ipcRenderer.invoke('git:status', repoPath);

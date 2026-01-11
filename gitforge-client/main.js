@@ -118,7 +118,7 @@ function createMenu() {
     Menu.setApplicationMenu(menu);
 }
 
-function runGit(command, repoPath) {
+function runGit(command, repoPath, options = { trim: true }) {
   // Normalize path for the OS
   const normalizedPath = path.normalize(repoPath);
   
@@ -132,7 +132,8 @@ function runGit(command, repoPath) {
               const errorMessage = stderr ? stderr.trim() : error.message;
               reject(new Error(errorMessage));
           } else {
-              resolve(stdout.trim());
+              const output = options.trim ? stdout.trim() : stdout;
+              resolve(output);
           }
       });
   });
@@ -317,16 +318,24 @@ app.whenReady().then(() => {
       const patch = await runGit(patchCmd, repoPath).catch(() => '');
       
       let original = '';
-      try {
-          original = await runGit(`git show HEAD:"${filePath}"`, repoPath);
-      } catch (e) {}
-
       let modified = '';
+
       if (staged) {
+          // Staged: HEAD vs Index
           try {
-              modified = await runGit(`git show :"${filePath}"`, repoPath);
+              original = await runGit(`git show HEAD:"${filePath}"`, repoPath);
+          } catch (e) {}
+          try {
+              // Quote the entire refspec for index lookup
+              modified = await runGit(`git show ":${filePath}"`, repoPath);
           } catch (e) {}
       } else {
+          // Unstaged: Index vs Workdir
+          try {
+              original = await runGit(`git show ":${filePath}"`, repoPath);
+          } catch (e) {
+              // If not in index (untracked), original is empty
+          }
           try {
               const normalizedPath = path.normalize(path.join(repoPath, filePath));
               if (fs.existsSync(normalizedPath)) {
@@ -564,10 +573,45 @@ app.whenReady().then(() => {
       return runGit('git init', normalizedPath);
   });
 
+  ipcMain.handle('git:stage', async (_, { repoPath, filePath }) => {
+      return runGit(`git add "${filePath}"`, repoPath);
+  });
+
+  ipcMain.handle('git:unstage', async (_, { repoPath, filePath }) => {
+      // git reset HEAD -- file (unstages)
+      return runGit(`git reset HEAD -- "${filePath}"`, repoPath);
+  });
+
+  ipcMain.handle('git:discardPath', async (_, { repoPath, filePath }) => {
+      // Try to checkout HEAD (discards staged and unstaged changes for tracked files)
+      try {
+          await runGit(`git checkout HEAD -- "${filePath}"`, repoPath);
+      } catch (e) {
+          // Ignore error (e.g. if file is untracked)
+      }
+      // Try to clean (removes untracked files)
+      try {
+          await runGit(`git clean -f "${filePath}"`, repoPath);
+      } catch (e) {
+          // Ignore error
+      }
+  });
+
+  ipcMain.handle('git:discardUnstaged', async (_, { repoPath, filePath }) => {
+      // Revert workdir to Index (keeps staged changes)
+      try {
+          await runGit(`git checkout -- "${filePath}"`, repoPath);
+      } catch (e) {}
+      // Remove untracked
+      try {
+          await runGit(`git clean -f "${filePath}"`, repoPath);
+      } catch (e) {}
+  });
+
   ipcMain.handle('git:status', async (_, repoPath) => {
       // Porcelain v1 for easy parsing
       // XY PATH
-      return runGit('git status --porcelain=v1', repoPath);
+      return runGit('git status --porcelain=v1', repoPath, { trim: false });
   });
 
   ipcMain.handle('git:branches', async (_, repoPath) => {
