@@ -1216,7 +1216,7 @@ function isImage(path: string) {
             </div>
         </div>
         <Separator />
-        <div className="p-4 pb-0 space-y-2">
+        <div className="p-4 pb-0">
             <Button 
                 variant={viewMode === 'workdir' ? 'secondary' : 'outline'}
                 size="sm" 
@@ -1225,11 +1225,11 @@ function isImage(path: string) {
             >
                 <FolderOpen className="h-4 w-4 mr-2" /> Working Directory
             </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-6">
             <SidebarIssuesSection repoPath={repoPath} />
             <SidebarPRSection repoPath={repoPath} onCheckout={handleCheckout} />
-        </div>
-        <ScrollArea className="flex-1 p-4">
-          <div className="space-y-6">
             <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input 
@@ -1434,7 +1434,7 @@ function isImage(path: string) {
             
 
           </div>
-        </ScrollArea>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -2133,7 +2133,7 @@ function isImage(path: string) {
                             </div>
                         )}
                         <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
-                            <div className="p-6">
+                            <div className="p-6 w-fit min-w-full">
                                 <InteractiveTerminalGraph 
                                     content={textGraph} 
                                     onCommitSelect={handleTerminalCommitClick} 
