@@ -40,7 +40,7 @@ import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen, User, Calendar, Columns, X, LayoutTemplate } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -67,22 +67,28 @@ function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { conte
     if (!content) return <div>No graph</div>;
 
     const lines = content.split('\n');
+    // Robust ANSI strip regex
+    const stripAnsi = (str: string) => str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
 
     return (
-        <div className="font-mono text-sm leading-relaxed whitespace-pre">
+        <div className="font-mono text-sm leading-relaxed whitespace-pre pb-4">
             {lines.map((line, i) => {
-                // Heuristic to find SHA in git-graph output (first 7-char hex string)
-                // We strip ANSI codes to find the SHA.
-                const cleanLine = line.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
-                const shaMatch = cleanLine.match(/\b[0-9a-f]{7}\b/);
+                const cleanLine = stripAnsi(line);
+                // Match 7-40 hex chars surrounded by boundaries
+                const shaMatch = cleanLine.match(/\b[0-9a-f]{7,40}\b/);
                 const sha = shaMatch ? shaMatch[0] : null;
                 const commitStub = { id: sha, message: cleanLine.trim() };
+                
                 return (
                     <ContextMenu key={i}>
-                        <ContextMenuTrigger disabled={!sha}>
+                        <ContextMenuTrigger asChild disabled={!sha}>
                             <div 
-                                className={`hover:bg-white/10 cursor-pointer px-2 -mx-2 rounded ${sha ? '' : 'pointer-events-none'}`}
-                                onClick={() => sha && onCommitSelect(sha)}
+                                className={`px-2 -mx-2 rounded transition-colors relative ${sha ? 'hover:bg-white/10 cursor-pointer' : ''}`}
+                                onClick={(e) => {
+                                    if (!sha) return;
+                                    e.stopPropagation();
+                                    onCommitSelect(sha);
+                                }}
                                 title={sha ? `Select commit ${sha}` : ''}
                             >
                                 <Ansi>{line}</Ansi>
@@ -540,7 +546,6 @@ export default function Home() {
 
   const handleCommitClick = async (commit: any) => {
       setSelectedCommit(commit);
-      setViewMode('commit');
       setSelectedFile(null);
       setDiffData(null);
       try {
@@ -608,7 +613,7 @@ function isImage(path: string) {
         // Determine staging status for workdir view
         // Priority: Explicit argument > Fallback to status check
         let isStaged = false;
-        if (viewMode === 'workdir') {
+        if (!selectedCommit) {
             const fileStatus = status?.files?.find((f: any) => f.path === filePath)?.status || '';
             isStaged = isStagedView !== undefined 
                 ? isStagedView 
@@ -620,7 +625,7 @@ function isImage(path: string) {
             const originalBase64 = await getFileContentBinary(repoPath, 'HEAD', filePath);
             let modifiedBase64 = null;
             
-            if (viewMode === 'workdir') {
+            if (!selectedCommit) {
                 if (isStaged) {
                     modifiedBase64 = await getFileContentBinary(repoPath, '', filePath); // git show :path
                 }
@@ -635,7 +640,7 @@ function isImage(path: string) {
                 originalUrl: originalBase64 ? `data:image/png;base64,${originalBase64}` : '',
                 modifiedUrl: modifiedBase64 ? `data:image/png;base64,${modifiedBase64}` : ''
             };
-        } else if (viewMode === 'workdir') {
+        } else if (!selectedCommit) {
             const details = await getDiffDetails(repoPath, filePath, isStaged);
             
             diff = {
@@ -1752,7 +1757,7 @@ function isImage(path: string) {
                                     <FileTree 
                                         files={status?.files?.filter((f: any) => f.status.includes("Staged")) || []}
                                         selectedFile={selectedFile}
-                                        onFileClick={(path) => handleFileClick(path, true)}
+                                        onFileClick={(path) => { setSelectedCommit(null); handleFileClick(path, true); }}
                                         onToggleStage={async (file) => {
                                             try { await unstageFile(repoPath, file.path); await loadRepo(historyLimit); }
                                             catch(e: any) { setError(e.message); }
@@ -1830,7 +1835,7 @@ function isImage(path: string) {
                                     <FileTree 
                                         files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || []}
                                         selectedFile={selectedFile}
-                                        onFileClick={(path) => handleFileClick(path, false)}
+                                        onFileClick={(path) => { setSelectedCommit(null); handleFileClick(path, false); }}
                                         onToggleStage={async (file) => {
                                             try { await stageFile(repoPath, file.path); await loadRepo(historyLimit); }
                                             catch(e: any) { setError(e.message); }
@@ -2126,21 +2131,80 @@ function isImage(path: string) {
                             )}
                         </div>
                     </div>
-                    <div className="flex-1 overflow-hidden h-full bg-slate-950 relative">
+                    <div className="flex-1 overflow-hidden h-full bg-slate-950 relative flex flex-col">
                         {graphLoading && (
                             <div className="absolute inset-0 flex items-center justify-center bg-slate-950/50 z-50">
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                         )}
-                        <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
-                            <div className="p-6 w-fit min-w-full">
-                                <InteractiveTerminalGraph 
-                                    content={textGraph} 
-                                    onCommitSelect={handleTerminalCommitClick} 
-                                    onAction={handleGraphAction}
-                                />
+                        <div className={`flex-1 overflow-hidden relative ${selectedCommit ? 'h-1/2 border-b border-slate-800' : 'h-full'}`}>
+                            <ScrollArea className="h-full w-full bg-slate-950 text-slate-100">
+                                <div className="p-6 w-fit min-w-full">
+                                    <InteractiveTerminalGraph 
+                                        content={textGraph} 
+                                        onCommitSelect={handleTerminalCommitClick} 
+                                        onAction={handleGraphAction}
+                                    />
+                                </div>
+                            </ScrollArea>
+                        </div>
+
+                        {selectedCommit && (
+                            <div className="h-1/2 bg-background flex flex-col overflow-hidden text-foreground border-t">
+                                <div className="p-4 border-b flex justify-between items-start bg-muted/30">
+                                    <div className="flex-1 min-w-0 mr-4">
+                                        <h3 className="font-bold text-lg mb-1 truncate" title={selectedCommit.message}>{selectedCommit.message}</h3>
+                                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                            <div className="flex items-center gap-1">
+                                                <User className="h-3 w-3" />
+                                                <span>{selectedCommit.author}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                <Calendar className="h-3 w-3" />
+                                                <span>{new Date(selectedCommit.timestamp || selectedCommit.date).toLocaleString()}</span>
+                                            </div>
+                                            <div className="font-mono bg-muted px-2 py-0.5 rounded select-all">
+                                                {selectedCommit.id}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 flex-shrink-0">
+                                        <Button size="sm" variant="outline" onClick={() => handleCheckout(selectedCommit.id)}>Checkout</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setSelectedCommit(null)}><X className="h-4 w-4" /></Button>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex-1 overflow-hidden flex flex-col">
+                                    <div className="p-2 text-xs font-bold text-muted-foreground uppercase border-b bg-muted/10">
+                                        Changes ({commitFiles.length})
+                                    </div>
+                                    <ScrollArea className="flex-1 p-0">
+                                        <div className="divide-y">
+                                            {commitFiles.map((file, i) => (
+                                                <div 
+                                                    key={i}
+                                                    className="flex items-center px-4 py-2 hover:bg-muted/50 cursor-pointer text-sm gap-2 group"
+                                                    onClick={() => handleFileClick(file.path, false)}
+                                                >
+                                                    <FileCode className="h-4 w-4 text-muted-foreground" />
+                                                    <span className="flex-1 truncate font-mono text-xs">{file.path}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+                                                        file.status === 'A' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                        file.status === 'M' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' :
+                                                        file.status === 'D' ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                                                        'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-400'
+                                                    }`}>
+                                                        {file.status === 'A' ? 'Added' :
+                                                         file.status === 'M' ? 'Modified' :
+                                                         file.status === 'D' ? 'Deleted' : file.status}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </ScrollArea>
+                                </div>
                             </div>
-                        </ScrollArea>
+                        )}
                     </div>
                 </div>
              )}
