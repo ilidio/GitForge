@@ -6,6 +6,7 @@ gitforge-client/server-dist/
 *.swp
 *~
 Thumbs.db
+.history/
 
 # IDEs
 .vscode/
