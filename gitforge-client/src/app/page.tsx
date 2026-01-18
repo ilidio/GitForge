@@ -63,7 +63,7 @@ import {
 import { Label } from "@/components/ui/label"
 
 // Helper to parse Ansi and find SHAs
-function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { content: string, onCommitSelect: (sha: string) => void, onAction?: (action: any, commit: any) => void }) {
+export function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { content: string, onCommitSelect: (sha: string) => void, onAction?: (action: any, commit: any) => void }) {
     if (!content) return <div>No graph</div>;
 
     const lines = content.split('\n');
@@ -124,7 +124,7 @@ function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { conte
 }
 
 // Helper to get language from file extension
-function getLanguageFromPath(path: string | null) {
+export function getLanguageFromPath(path: string | null) {
     if (!path) return 'plaintext';
     const ext = path.split('.').pop()?.toLowerCase();
     switch (ext) {
@@ -2169,6 +2169,9 @@ function isImage(path: string) {
                                         </div>
                                     </div>
                                     <div className="flex gap-2 flex-shrink-0">
+                                        <Button size="sm" variant="outline" onClick={() => { setViewMode('commit'); }} title="Open in Sidebar">
+                                            <LayoutTemplate className="h-4 w-4 mr-1" /> Sidebar
+                                        </Button>
                                         <Button size="sm" variant="outline" onClick={() => handleCheckout(selectedCommit.id)}>Checkout</Button>
                                         <Button size="sm" variant="ghost" onClick={() => setSelectedCommit(null)}><X className="h-4 w-4" /></Button>
                                     </div>
