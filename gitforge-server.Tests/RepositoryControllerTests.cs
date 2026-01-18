@@ -237,4 +237,32 @@ public class RepositoryControllerTests : IDisposable
         var result2 = controller.Checkout(_testRepoPath, tipSha);
         Assert.IsType<OkResult>(result2);
     }
+
+    [Fact]
+    public void GetCommitChanges_ReturnsChanges()
+    {
+        var controller = new RepositoryController();
+        string tipSha;
+        using (var repo = new Repository(_testRepoPath)) { tipSha = repo.Head.Tip.Sha; }
+
+        var result = controller.GetCommitChanges(_testRepoPath, tipSha);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value);
+        Assert.NotEmpty(changes);
+    }
+
+    [Fact]
+    public void GetDiff_ReturnsDiffData()
+    {
+        var controller = new RepositoryController();
+        var filePath = "test.txt";
+        File.WriteAllText(Path.Combine(_testRepoPath, filePath), "modified content");
+
+        var result = controller.GetDiff(_testRepoPath, filePath);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var diff = Assert.IsType<GitFileDiff>(okResult.Value);
+        
+        Assert.Equal("content", diff.OriginalContent);
+        Assert.Equal("modified content", diff.ModifiedContent);
+    }
 }

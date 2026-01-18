@@ -149,18 +149,32 @@ function startSidecar() {
     sidecarProcess = spawn(dotnetCmd, ['run', '--project', 'GitForge.Server.csproj'], {
       cwd: serverPath,
       stdio: 'inherit',
-      shell: isWindows // Windows needs shell for dotnet run often
+      shell: isWindows 
     });
   } else {
     const binaryName = isWindows ? 'GitForge.Server.exe' : 'GitForge.Server';
-    // We copied the server-dist folder to 'server' in extraResources
     const sidecarPath = path.join(process.resourcesPath, 'server', binaryName);
-    // Explicitly set the port to 5030 for production to match client API
-    sidecarProcess = spawn(sidecarPath, ['--urls', 'http://localhost:5030'], { stdio: 'inherit' });
+    
+    console.log(`Starting production sidecar: ${sidecarPath}`);
+    
+    if (!fs.existsSync(sidecarPath)) {
+        console.error(`Sidecar binary not found at: ${sidecarPath}`);
+        return;
+    }
+
+    sidecarProcess = spawn(sidecarPath, ['--urls', 'http://localhost:5030'], { 
+        stdio: 'inherit',
+        cwd: path.dirname(sidecarPath)
+    });
   }
 
   sidecarProcess.on('error', (err) => {
-    console.error('Failed to start sidecar:', err);
+    console.error('Failed to start sidecar process:', err);
+  });
+
+  sidecarProcess.on('exit', (code, signal) => {
+    console.log(`Sidecar process exited with code ${code} and signal ${signal}`);
+    sidecarProcess = null;
   });
 }
 

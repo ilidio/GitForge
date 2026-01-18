@@ -3,7 +3,8 @@
   "productName": "GitForge",
   "version": "0.1.0",
   "description": "A modern, AI-powered Git client built with web technologies.",
-  "author": "Ilidio Martins",
+  "author": "Ilidio Martins <ilidio.martins@gmail.com>",
+  "homepage": "https://github.com/ilidiomartins/gitforge",
   "private": true,
   "main": "main.js",
   "scripts": {
@@ -35,16 +36,30 @@
       "target": "dmg"
     },
     "win": {
-      "target": "nsis",
+      "target": [
+        "nsis",
+        "portable"
+      ],
       "icon": "public/logo.png"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "GitForge",
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/logo.png"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "public/logo.png",
+      "category": "Development",
+      "maintainer": "Ilidio Martins <ilidio.martins@gmail.com>"
     },
     "extraResources": [
       {
-        "from": "server-dist",
+        "from": "server-dist/${os}",
         "to": "server",
         "filter": [
           "**/*"
