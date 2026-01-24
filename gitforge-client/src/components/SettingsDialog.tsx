@@ -232,7 +232,14 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                             </TabsContent>
 
                             <TabsContent value="ai" className="space-y-4 border p-4 rounded-md mt-0">
-                                <h3 className="font-medium text-sm">AI Assistant</h3>
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-medium text-sm">AI Assistant</h3>
+                                    {process.env.NEXT_PUBLIC_GEMINI_API_KEY && (
+                                        <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full border border-green-500/20 flex items-center gap-1">
+                                            <Sparkles className="w-3 h-3" /> Gemini Configured via Env
+                                        </span>
+                                    )}
+                                </div>
                                 <div className="grid grid-cols-4 items-center gap-4">
                                     <Label className="text-right">Provider</Label>
                                     <select 

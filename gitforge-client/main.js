@@ -224,6 +224,28 @@ app.whenReady().then(() => {
       return runGit(`git log -n ${count} --pretty=format:"%H|%an|%ad|%s|%G?" --date=iso`, repoPath);
   });
 
+  ipcMain.handle('git:getCommitsForDate', async (_, { repoPath, since, until }) => {
+      // git log --since="since" --until="until" --pretty=format:"%H|%an|%ad|%s" --date=iso
+      const output = await runGit(`git log --since="${since}" --until="${until}" --pretty=format:"%H|%an|%ad|%s" --date=iso`, repoPath);
+      if (!output) return [];
+      
+      const commits = output.split('\n').filter(Boolean).map((line) => {
+          const [id, author, timestamp, message] = line.split('|');
+          return { id, author, timestamp, message };
+      });
+
+      // For each commit, get a short diff summary
+      for (const commit of commits) {
+          try {
+              commit.diff = await runGit(`git show --stat ${commit.id}`, repoPath);
+          } catch (e) {
+              commit.diff = "";
+          }
+      }
+
+      return commits;
+  });
+
   ipcMain.handle('git:stashPush', async (_, { repoPath, message, files }) => {
       // git stash push -m "message" -- file1 file2
       let cmd = 'git stash push';
@@ -309,6 +331,82 @@ app.whenReady().then(() => {
       }
   });
 
+  ipcMain.handle('ai:generateDailyBrief', async (_, { commits, apiKey, endpoint, model, language = 'English' }) => {
+      if (!commits || commits.length === 0) throw new Error("No commits provided");
+      if (!apiKey) throw new Error("API Key is required");
+      
+      const apiEndpoint = endpoint || 'https://api.openai.com/v1/chat/completions';
+      const apiModel = model || 'gpt-3.5-turbo';
+
+      const systemPrompt = `You are a helpful assistant that summarizes daily progress in a software project. 
+      Output the summary in ${language}.
+      The summary should be concise and professional, suitable for a daily stand-up meeting.
+      Highlight key features, bug fixes, and refactorings.`;
+
+      let commitsContext = "Commits from today:\n\n";
+      commits.forEach(c => {
+          commitsContext += `- ${c.message} (SHA: ${c.id})\n`;
+          if (c.diff) {
+              commitsContext += `  Diff summary: ${c.diff.substring(0, 500)}\n`;
+          }
+          commitsContext += "\n";
+      });
+
+      const prompt = `Please summarize the following work progress:\n\n${commitsContext}`;
+
+      try {
+          if (apiEndpoint.includes('generativelanguage.googleapis.com')) {
+              const geminiUrl = `${apiEndpoint}?key=${apiKey}`;
+              const geminiPrompt = `${systemPrompt}\n\n${prompt}`;
+              
+              const response = await fetch(geminiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                      contents: [{
+                          parts: [{ text: geminiPrompt }]
+                      }]
+                  })
+              });
+
+              if (!response.ok) {
+                  const err = await response.text();
+                  throw new Error(`Gemini API Error: ${err}`);
+              }
+
+              const data = await response.json();
+              return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+          } 
+          
+          const response = await fetch(apiEndpoint, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                  model: apiModel,
+                  messages: [
+                      { role: "system", content: systemPrompt },
+                      { role: "user", content: prompt }
+                  ],
+                  temperature: 0.7
+              })
+          });
+
+          if (!response.ok) {
+              const err = await response.text();
+              throw new Error(`AI API Error: ${err}`);
+          }
+
+          const data = await response.json();
+          return data.choices[0]?.message?.content?.trim();
+      } catch (error) {
+          console.error("AI Generation Failed:", error);
+          throw error;
+      }
+  });
+
   ipcMain.handle('git:showBinary', async (_, { repoPath, ref, filePath }) => {
       // Returns base64 string
       return new Promise((resolve, reject) => {
@@ -359,6 +457,89 @@ app.whenReady().then(() => {
       }
 
       return { patch, original, modified };
+  });
+
+  ipcMain.handle('git:compareFiles', async (_, { repoPath, pathA, refA, pathB, refB }) => {
+      // refA/refB can be "HEAD", a SHA, or null/empty for working directory
+      let contentA = '';
+      let contentB = '';
+
+      try {
+          if (refA) {
+              contentA = await runGit(`git show "${refA}:${pathA}"`, repoPath);
+          } else {
+              const fullPathA = path.normalize(path.join(repoPath, pathA));
+              if (fs.existsSync(fullPathA)) {
+                  contentA = fs.readFileSync(fullPathA, 'utf8');
+              }
+          }
+      } catch (e) {
+          console.error("Failed to read file A", e);
+      }
+
+      try {
+          if (refB) {
+              contentB = await runGit(`git show "${refB}:${pathB}"`, repoPath);
+          } else {
+              const fullPathB = path.normalize(path.join(repoPath, pathB));
+              if (fs.existsSync(fullPathB)) {
+                  contentB = fs.readFileSync(fullPathB, 'utf8');
+              }
+          }
+      } catch (e) {
+          console.error("Failed to read file B", e);
+      }
+
+      // Generate patch using git diff --no-index
+      // We need to write to temp files
+      const tmpDir = app.getPath('temp');
+      const fileATmp = path.join(tmpDir, `gitforge_a_${Date.now()}.txt`);
+      const fileBTmp = path.join(tmpDir, `gitforge_b_${Date.now()}.txt`);
+
+      fs.writeFileSync(fileATmp, contentA);
+      fs.writeFileSync(fileBTmp, contentB);
+
+      let patch = '';
+      try {
+          // git diff --no-index returns 1 if differences were found
+          patch = await runGit(`git diff --no-index --color=never "${fileATmp}" "${fileBTmp}"`, repoPath);
+      } catch (e) {
+          if (e.message && e.message.includes('diff')) {
+              // This is expected if there are diffs
+              patch = e.message; 
+              // Usually runGit might reject if exit code is 1. 
+              // Wait, runGit uses exec which rejects on exit code != 0.
+              // We need to handle that.
+          }
+          // If it's a real error, it might be caught here.
+          // git diff --no-index often outputs to stdout even with exit 1.
+          // Let's check how runGit is implemented.
+      }
+
+      // Cleanup
+      try {
+          fs.unlinkSync(fileATmp);
+          fs.unlinkSync(fileBTmp);
+      } catch (e) {}
+
+      // Re-run the diff more carefully if first attempt failed
+      if (!patch || !patch.startsWith('diff')) {
+          return new Promise((resolve) => {
+              fs.writeFileSync(fileATmp, contentA);
+              fs.writeFileSync(fileBTmp, contentB);
+              exec(`git diff --no-index --color=never "${fileATmp}" "${fileBTmp}"`, { cwd: repoPath }, (err, stdout, stderr) => {
+                  fs.unlinkSync(fileATmp);
+                  fs.unlinkSync(fileBTmp);
+                  resolve({
+                      patch: stdout || stderr || '',
+                      original: contentA,
+                      modified: contentB
+                  });
+              });
+          });
+      }
+
+      return { patch, original: contentA, modified: contentB };
   });
 
   ipcMain.handle('git:apply', async (_, { repoPath, patch, reverse = false, cached = false }) => {

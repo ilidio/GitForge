@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronRight, ChevronDown, FileText, Folder, FolderOpen, Trash, Eye, Archive } from 'lucide-react';
+import { ChevronRight, ChevronDown, FileText, Folder, FolderOpen, Trash, Eye, Archive, ArrowRightLeft } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator } from '@/components/ui/context-menu';
@@ -15,6 +15,7 @@ interface FileTreeProps {
     onResolve?: (file: any) => void;
     onIgnore?: (path: string) => void;
     onHistory?: (path: string) => void;
+    onCompare?: (path: string) => void;
     onDelete?: (path: string) => void;
     onRename?: (oldPath: string, newPath: string) => void;
     onStash?: (path: string) => void;
@@ -30,7 +31,7 @@ interface TreeNode {
     fileData?: any; // For when a directory itself is a status item
 }
 
-export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash, onDiscard, checked }: FileTreeProps) {
+export default function FileTree({ files, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onCompare, onDelete, onRename, onStash, onDiscard, checked }: FileTreeProps) {
     const buildTree = (files: any[]) => {
         const root: TreeNode = { name: '', path: '', children: {}, files: [] };
         files.forEach(file => {
@@ -80,6 +81,7 @@ export default function FileTree({ files, selectedFile, onFileClick, onToggleSta
                 onResolve={onResolve}
                 onIgnore={onIgnore}
                 onHistory={onHistory}
+                onCompare={onCompare}
                 onDelete={onDelete}
                 onRename={onRename}
                 onStash={onStash}
@@ -91,7 +93,7 @@ export default function FileTree({ files, selectedFile, onFileClick, onToggleSta
     );
 }
 
-function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onDelete, onRename, onStash, onDiscard, checked, isRoot = false }: any) {
+function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewMode, onResolve, onIgnore, onHistory, onCompare, onDelete, onRename, onStash, onDiscard, checked, isRoot = false }: any) {
     const [isOpen, setIsOpen] = useState(true);
 
     const hasContent = Object.keys(node.children).length > 0 || node.files.length > 0;
@@ -198,6 +200,7 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                             onResolve={onResolve}
                             onIgnore={onIgnore}
                             onHistory={onHistory}
+                            onCompare={onCompare}
                             onDelete={onDelete}
                             onRename={onRename}
                             onStash={onStash}
@@ -263,6 +266,9 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                                     </ContextMenuItem>
                                     <ContextMenuItem onClick={() => onHistory?.(file.path)}>
                                         <FileText className="w-3 h-3 mr-2" /> File History
+                                    </ContextMenuItem>
+                                    <ContextMenuItem onClick={() => onCompare?.(file.path)}>
+                                        <ArrowRightLeft className="w-3 h-3 mr-2" /> Compare with...
                                     </ContextMenuItem>
                                     {viewMode === 'workdir' && (
                                         <>

@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Command } from 'cmdk';
-import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save, History, FileText, Terminal, Archive } from 'lucide-react';
+import { Search, GitBranch, RefreshCw, ArrowDown, ArrowUp, Plus, Trash, Tag, Settings, FileCode, CheckCircle, Save, History, FileText, Terminal, Archive, Sparkles, ArrowRightLeft } from 'lucide-react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface CommandPaletteProps {
@@ -24,6 +24,8 @@ interface CommandPaletteProps {
             runGc: () => void;
             openFileSearch: () => void;
             toggleTerminal: () => void;
+            openDailyBrief: () => void;
+            openCompareFiles: () => void;
         };}
 
 export default function CommandPalette({ open, onOpenChange, actions, repoPath, hasHistory, hasRemotes, hasStagedChanges }: CommandPaletteProps) {
@@ -91,6 +93,14 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath, 
                             <Command.Item disabled={!repoPath} onSelect={() => run(actions.toggleTerminal)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
                                 <Terminal className="mr-2 h-4 w-4" />
                                 <span>Toggle Terminal</span>
+                            </Command.Item>
+                            <Command.Item disabled={!repoPath} onSelect={() => run(actions.openDailyBrief)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                <span>Daily Progress Briefing...</span>
+                            </Command.Item>
+                            <Command.Item disabled={!repoPath} onSelect={() => run(actions.openCompareFiles)} className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50">
+                                <ArrowRightLeft className="mr-2 h-4 w-4" />
+                                <span>Cross-File Comparison...</span>
                             </Command.Item>
                         </Command.Group>
         

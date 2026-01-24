@@ -39,6 +39,8 @@ import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
+import DailyBriefDialog from '@/components/DailyBriefDialog';
+import CompareFilesDialog from '@/components/CompareFilesDialog';
 import Ansi from 'ansi-to-react';
 import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen, User, Calendar, Columns, X, LayoutTemplate } from 'lucide-react';
 import {
@@ -243,6 +245,13 @@ export default function Home() {
 
   // Stash Dialog State
   const [isStashDialogOpen, setIsStashDialogOpen] = useState(false);
+
+  // Daily Brief State
+  const [isDailyBriefOpen, setIsDailyBriefOpen] = useState(false);
+
+  // Compare Files State
+  const [isCompareFilesOpen, setIsCompareFilesOpen] = useState(false);
+  const [compareFileA, setCompareFileA] = useState('');
 
   // Terminal State
   const [isTerminalOpen, setIsTerminalOpen] = useState(false);
@@ -698,9 +707,12 @@ function isImage(path: string) {
   };
 
   const handleAICommit = async () => {
-      const apiKey = localStorage.getItem('ai_api_key');
+      let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
+      let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
+      let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-3.5-turbo');
+
       if (!apiKey) {
-          alert('Please configure your AI API Key in Settings.');
+          alert('Please configure your AI API Key in Settings or .env.local file.');
           setIsSettingsOpen(true);
           return;
       }
@@ -715,8 +727,6 @@ function isImage(path: string) {
               return;
           }
           
-          const provider = localStorage.getItem('ai_provider') || 'openai';
-          const model = localStorage.getItem('ai_model') || 'gpt-3.5-turbo';
           let endpoint = 'https://api.openai.com/v1/chat/completions';
           if (provider === 'gemini') {
               endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
@@ -2306,6 +2316,19 @@ function isImage(path: string) {
         onDrop={handleStashDrop}
       />
 
+      <DailyBriefDialog
+        open={isDailyBriefOpen}
+        onOpenChange={setIsDailyBriefOpen}
+        repoPath={repoPath}
+      />
+
+      <CompareFilesDialog
+        open={isCompareFilesOpen}
+        onOpenChange={setIsCompareFilesOpen}
+        repoPath={repoPath}
+        initialFileA={compareFileA}
+      />
+
       <Dialog open={isBlameOpen} onOpenChange={setIsBlameOpen}>
         <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
             <DialogHeader>
@@ -2367,6 +2390,11 @@ function isImage(path: string) {
             runGc: handleGc,
             openFileSearch: () => setIsFileSearchOpen(true),
             toggleTerminal: () => setIsTerminalOpen(!isTerminalOpen),
+            openDailyBrief: () => setIsDailyBriefOpen(true),
+            openCompareFiles: () => {
+                setCompareFileA('');
+                setIsCompareFilesOpen(true);
+            },
         }}
       />
       <SettingsDialog 

@@ -22,6 +22,11 @@ export async function getLog(repoPath: string, count = 50) {
     });
 }
 
+export async function getCommitsForDate(repoPath: string, since: string, until: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:getCommitsForDate', { repoPath, since, until });
+}
+
 export async function stashPush(repoPath: string, message: string, files: string[] = []) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:stashPush', { repoPath, message, files });
@@ -32,6 +37,11 @@ export async function generateAICommitMessage(diff: string, apiKey: string, endp
     return ipcRenderer.invoke('ai:generateCommitMessage', { diff, apiKey, endpoint, model, context });
 }
 
+export async function generateDailyBrief(commits: any[], apiKey: string, endpoint?: string, model?: string, language?: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('ai:generateDailyBrief', { commits, apiKey, endpoint, model, language });
+}
+
 export async function getFileContentBinary(repoPath: string, ref: string, filePath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:showBinary', { repoPath, ref, filePath });
@@ -40,6 +50,11 @@ export async function getFileContentBinary(repoPath: string, ref: string, filePa
 export async function getDiffDetails(repoPath: string, filePath: string, staged: boolean) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('git:diffDetails', { repoPath, filePath, staged });
+}
+
+export async function compareFiles(repoPath: string, pathA: string, refA: string | null, pathB: string, refB: string | null) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:compareFiles', { repoPath, pathA, refA, pathB, refB });
 }
 
 export async function applyPatch(repoPath: string, patch: string, cached = true, reverse = false) {
