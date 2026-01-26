@@ -2448,7 +2448,7 @@ function isImage(path: string) {
         onOpenChange={setIsFileSearchOpen} 
         repoPath={repoPath} 
         onSelect={(path) => {
-            handleFileHistory(path);
+            handleFileClick(path);
         }} 
       />
 

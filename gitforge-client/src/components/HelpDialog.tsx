@@ -10,7 +10,7 @@ import {
     Settings, ShieldAlert, History, MousePointer2, 
     Terminal, FileCode, Archive, Layout, Command, 
     RotateCcw, Github, Info, ExternalLink, Folder, Trash,
-    BarChart3, Globe, Sparkles, Lock, AlertCircle
+    BarChart3, Globe, Sparkles, Lock, AlertCircle, ArrowRightLeft
 } from 'lucide-react';
 
 interface HelpDialogProps {
@@ -106,11 +106,17 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                         </h3>
                                         <div className="grid grid-cols-2 gap-6">
                                             <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
+                                                <div className="text-sm font-bold mb-2 flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Daily Briefing</div>
+                                                <p className="text-xs text-muted-foreground leading-relaxed">
+                                                    Use the <strong>Command Palette</strong> (Cmd+K) to generate an AI summary of your work for any specific day. <em>(Requires a repository to be open)</em>.
+                                                </p>
+                                            </div>
+                                            <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
                                                 <div className="text-sm font-bold mb-2 flex items-center gap-2">
                                                     <Sparkles className="h-4 w-4 text-purple-500" /> AI Assistant
                                                 </div>
                                                 <p className="text-xs text-muted-foreground">
-                                                    Click the <strong>Sparkles Button</strong> to generate a semantic commit message automatically using AI (OpenAI or Gemini). Configure your API Key in Settings &gt; AI.
+                                                    Click the <strong>Sparkles Button</strong> to generate a commit message or the <strong>Shield Button</strong> to perform an <strong>AI Code Review</strong> on staged changes.
                                                 </p>
                                             </div>
                                             <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
@@ -138,15 +144,20 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                         </h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">
                                             The <strong>History Graph</strong> supports multiple views: SourceTree, Compact, and Detailed. 
-                                            Toggle the "Terminal" button to switch to an ASCII-style graph for a classic CLI experience.
+                                            Toggle the "Terminal" button to switch to an ASCII-style graph. <strong>Right-click</strong> any commit in the graph to Checkout, Merge, or Cherry-pick.
                                         </p>
-                                        <div className="p-4 bg-muted/10 rounded-lg border flex gap-4 items-center">
-                                            <Lock className="h-4 w-4 text-green-500" />
-                                            <div className="text-xs text-muted-foreground">
-                                                <strong>Commit Signatures:</strong> Look for lock icons in the graph. 
-                                                <span className="text-green-500 mx-1">Green</span> means verified GPG/SSH signature, 
-                                                <span className="text-red-500 mx-1">Red</span> means invalid, and 
-                                                <span className="text-yellow-500 mx-1">Yellow</span> means unknown key.
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-4 bg-muted/10 rounded-lg border flex gap-4 items-center">
+                                                <Lock className="h-4 w-4 text-green-500" />
+                                                <div className="text-xs text-muted-foreground">
+                                                    <strong>Signatures:</strong> Verified GPG/SSH signatures appear as green locks.
+                                                </div>
+                                            </div>
+                                            <div className="p-4 bg-muted/10 rounded-lg border flex gap-4 items-center">
+                                                <RotateCcw className="h-4 w-4 text-blue-500" />
+                                                <div className="text-xs text-muted-foreground">
+                                                    <strong>CI Status:</strong> Indicators (✅/❌/⏳) show GitHub Action results for recent commits.
+                                                </div>
                                             </div>
                                         </div>
                                     </section>
@@ -211,6 +222,16 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                         </p>
                                         <p className="text-sm text-muted-foreground leading-relaxed mt-2">
                                             Click <strong>Blame</strong> to view an enhanced table view of line-by-line history, including commit hash, author, date, and commit message summary.
+                                        </p>
+                                    </section>
+
+                                    <section className="space-y-4 border-t pt-12">
+                                        <h3 className="text-xl font-bold flex items-center gap-3">
+                                            <ArrowRightLeft className="h-5 w-5 text-primary" /> Cross-File Comparison
+                                        </h3>
+                                        <p className="text-sm text-muted-foreground leading-relaxed">
+                                            Use <strong>Cross-File Comparison</strong> from the Command Palette to compare two completely different files or different versions of the same file. 
+                                            This is ideal for tracking code that has been moved or refactored across the project.
                                         </p>
                                     </section>
 
@@ -308,6 +329,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                     <div className="grid grid-cols-1 gap-4 max-w-2xl">
                                         {[
                                             { key: 'Cmd/Ctrl + K', desc: 'Global Command Palette' },
+                                            { key: 'Cmd/Ctrl + P', desc: 'Quick File Search / Go to File' },
                                             { key: 'Cmd/Ctrl + Enter', desc: 'Commit Staged Changes' },
                                             { key: 'Shift + ?', desc: 'Open this Help Interface' },
                                             { key: 'Enter', desc: 'Submit Search or Open Path' },

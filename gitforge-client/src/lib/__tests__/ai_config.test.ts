@@ -18,7 +18,7 @@ describe('AI Configuration', () => {
 
   it('should fallback to a default model if not provided', () => {
     vi.stubEnv('NEXT_PUBLIC_GEMINI_MODEL', '');
-    const model = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-flash';
-    expect(model).toBe('gemini-1.5-flash');
+    const model = process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-3-flash-preview';
+    expect(model).toBe('gemini-3-flash-preview');
   });
 });
