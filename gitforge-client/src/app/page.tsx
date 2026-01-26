@@ -1906,7 +1906,7 @@ function isImage(path: string) {
             
             {/* Commit Box (Only in WorkDir) */}
             {viewMode === 'workdir' && (
-                <div className="p-3 border-t bg-background space-y-2">
+                <div className="p-3 border-t bg-background space-y-2 relative z-20">
                     <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center space-x-2">
                             <Checkbox 
