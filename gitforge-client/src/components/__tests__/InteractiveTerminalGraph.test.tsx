@@ -31,6 +31,19 @@ describe('InteractiveTerminalGraph', () => {
     expect(onCommitSelect).toHaveBeenCalledWith('56afa3c');
   });
 
+  it('renders CI status icons when provided', () => {
+    const content = '* 56afa3c feat: support Google Gemini API\n* 2dd9b16 feat(history): Display commit details';
+    const commitStatuses = {
+      '56afa3c': 'success',
+      '2dd9b16': 'failure'
+    };
+    
+    render(<InteractiveTerminalGraph content={content} onCommitSelect={vi.fn()} commitStatuses={commitStatuses} />);
+    
+    expect(screen.getByTitle('CI Passed')).toBeInTheDocument();
+    expect(screen.getByTitle('CI Failed')).toBeInTheDocument();
+  });
+
   it('handles empty content gracefully', () => {
     render(<InteractiveTerminalGraph content="" onCommitSelect={vi.fn()} />);
     expect(screen.getByText('No graph')).toBeInTheDocument();

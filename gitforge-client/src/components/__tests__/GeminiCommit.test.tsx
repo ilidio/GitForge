@@ -11,6 +11,7 @@ vi.mock('@/lib/electron', () => ({
   getStashes: vi.fn().mockResolvedValue([]),
   getTags: vi.fn().mockResolvedValue(''),
   generateAICommitMessage: vi.fn().mockResolvedValue('feat: implementation of tests'),
+  reviewChanges: vi.fn().mockResolvedValue('AI Review Result'),
   getDiffFile: vi.fn().mockResolvedValue('fake diff content'),
   getConfig: vi.fn().mockResolvedValue(''),
   getCustomGraph: vi.fn().mockResolvedValue(''),
@@ -52,5 +53,26 @@ describe('Gemini AI Commit Message', () => {
 
     const textarea = screen.getByPlaceholderText('Commit message...');
     expect(textarea).toHaveValue('feat: implementation of tests');
+  });
+
+  it('calls reviewChanges and opens ReviewDialog', async () => {
+    const { reviewChanges } = await import('@/lib/electron');
+    (reviewChanges as any).mockResolvedValue('AI Review Result');
+
+    render(<Home />);
+    
+    // Find the Review button (Shield icon)
+    const reviewButton = screen.getByTitle('AI Code Review');
+    expect(reviewButton).toBeInTheDocument();
+
+    // Trigger click
+    fireEvent.click(reviewButton);
+    
+    await waitFor(() => {
+      expect(reviewChanges).toHaveBeenCalled();
+    });
+
+    // Check if dialog content appears
+    expect(screen.getByText(/AI Review Result/i)).toBeInTheDocument();
   });
 });
