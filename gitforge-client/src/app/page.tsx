@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getFileDiff, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged } from '@/lib/electron';
+import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, reviewChanges, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged } from '@/lib/electron';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
 import PatchView from '@/components/PatchView';
@@ -40,9 +40,10 @@ import HelpDialog from '@/components/HelpDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
 import DailyBriefDialog from '@/components/DailyBriefDialog';
+import ReviewDialog from '@/components/ReviewDialog';
 import CompareFilesDialog from '@/components/CompareFilesDialog';
 import Ansi from 'ansi-to-react';
-import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen, User, Calendar, Columns, X, LayoutTemplate } from 'lucide-react';
+import { Plus, RefreshCw, ArrowDown, ArrowUp, Terminal, GitGraph as GitGraphIcon, Moon, Sun, Search, Archive, Undo, Settings2, Tag, Trash, FileCode, RotateCcw, GitBranch, Folder, ExternalLink, GripVertical, HelpCircle, BarChart3, Globe, DownloadCloud, Sparkles, Layers, Loader2, FolderOpen, User, Calendar, Columns, X, LayoutTemplate, ShieldCheck } from 'lucide-react';
 import {
   ContextMenu,
   ContextMenuContent,
@@ -65,12 +66,24 @@ import {
 import { Label } from "@/components/ui/label"
 
 // Helper to parse Ansi and find SHAs
-export function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: { content: string, onCommitSelect: (sha: string) => void, onAction?: (action: any, commit: any) => void }) {
+export function InteractiveTerminalGraph({ content, onCommitSelect, onAction, commitStatuses }: { content: string, onCommitSelect: (sha: string) => void, onAction?: (action: any, commit: any) => void, commitStatuses?: Record<string, string> }) {
     if (!content) return <div>No graph</div>;
 
     const lines = content.split('\n');
     // Robust ANSI strip regex
     const stripAnsi = (str: string) => str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+
+    const getStatusIcon = (sha: string) => {
+        if (!commitStatuses || !commitStatuses[sha]) return null;
+        const status = commitStatuses[sha];
+        switch (status) {
+            case 'success': return <span className="text-green-500 mr-2 text-[10px]" title="CI Passed">✅</span>;
+            case 'failure':
+            case 'error': return <span className="text-red-500 mr-2 text-[10px]" title="CI Failed">❌</span>;
+            case 'pending': return <span className="text-yellow-500 mr-2 text-[10px] animate-pulse" title="CI Pending">⏳</span>;
+            default: return null;
+        }
+    };
 
     return (
         <div className="font-mono text-sm leading-relaxed whitespace-pre pb-4">
@@ -85,7 +98,7 @@ export function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: 
                     <ContextMenu key={i}>
                         <ContextMenuTrigger asChild disabled={!sha}>
                             <div 
-                                className={`px-2 -mx-2 rounded transition-colors relative ${sha ? 'hover:bg-white/10 cursor-pointer' : ''}`}
+                                className={`px-2 -mx-2 rounded transition-colors relative flex items-center ${sha ? 'hover:bg-white/10 cursor-pointer' : ''}`}
                                 onClick={(e) => {
                                     if (!sha) return;
                                     e.stopPropagation();
@@ -93,6 +106,7 @@ export function InteractiveTerminalGraph({ content, onCommitSelect, onAction }: 
                                 }}
                                 title={sha ? `Select commit ${sha}` : ''}
                             >
+                                {sha && getStatusIcon(sha)}
                                 <Ansi>{line}</Ansi>
                             </div>
                         </ContextMenuTrigger>
@@ -296,6 +310,12 @@ export default function Home() {
   const [amend, setAmend] = useState(false);
   const [pushOnCommit, setPushOnCommit] = useState(false);
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+
+  // AI Review State
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
+  const [reviewContent, setReviewContent] = useState('');
+  const [isReviewLoading, setIsReviewLoading] = useState(false);
+  const [reviewError, setReviewError] = useState('');
 
   // Search State
   const [branchSearch, setBranchSearch] = useState('');
@@ -741,6 +761,48 @@ function isImage(path: string) {
           setError(e.message);
       } finally {
           setIsGeneratingAI(false);
+      }
+  };
+
+  const handleReviewChanges = async () => {
+    // AI Configuration
+    let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
+    let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
+    let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
+
+      if (!apiKey) {
+          alert('Please configure your AI API Key in Settings or .env.local file.');
+          setIsSettingsOpen(true);
+          return;
+      }
+
+      setReviewContent('');
+      setReviewError('');
+      setIsReviewLoading(true);
+      setIsReviewOpen(true);
+
+      try {
+          // Get diff of staged files
+          const diff = await getDiffFile(repoPath, '.', true);
+          if (!diff || diff.length < 10) {
+              setReviewError('Stage some changes first to review them.');
+              setIsReviewLoading(false);
+              return;
+          }
+          
+          let endpoint = 'https://api.openai.com/v1/chat/completions';
+          if (provider === 'gemini') {
+              endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+          }
+          
+          const context = localStorage.getItem('ai_context') || '';
+
+          const review = await reviewChanges(diff, apiKey, endpoint, model, context);
+          if (review) setReviewContent(review);
+      } catch (e: any) {
+          setReviewError(e.message);
+      } finally {
+          setIsReviewLoading(false);
       }
   };
 
@@ -1952,6 +2014,16 @@ function isImage(path: string) {
                             <Button 
                                 variant="ghost" 
                                 size="icon" 
+                                className={`h-6 w-6 ${isReviewLoading ? 'animate-pulse text-primary' : ''}`}
+                                onClick={handleReviewChanges}
+                                title="AI Code Review"
+                                disabled={isReviewLoading}
+                            >
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
                                 className={`h-6 w-6 ${isGeneratingAI ? 'animate-pulse text-primary' : ''}`}
                                 onClick={handleAICommit}
                                 title="Generate Commit Message with AI"
@@ -2155,6 +2227,7 @@ function isImage(path: string) {
                                         content={textGraph} 
                                         onCommitSelect={handleTerminalCommitClick} 
                                         onAction={handleGraphAction}
+                                        commitStatuses={commitStatuses}
                                     />
                                 </div>
                             </ScrollArea>
@@ -2321,6 +2394,14 @@ function isImage(path: string) {
         open={isDailyBriefOpen}
         onOpenChange={setIsDailyBriefOpen}
         repoPath={repoPath}
+      />
+
+      <ReviewDialog
+        open={isReviewOpen}
+        onOpenChange={setIsReviewOpen}
+        review={reviewContent}
+        loading={isReviewLoading}
+        error={reviewError}
       />
 
       <CompareFilesDialog

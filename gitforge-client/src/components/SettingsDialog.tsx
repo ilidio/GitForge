@@ -17,6 +17,7 @@ interface SettingsDialogProps {
 export default function SettingsDialog({ open, onOpenChange, repoPath }: SettingsDialogProps) {
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
+    const [githubToken, setGithubToken] = useState('');
     const [remotes, setRemotes] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [newRemoteName, setNewRemoteName] = useState('');
@@ -43,6 +44,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             const lines = config.split('\n');
             let name = '';
             let email = '';
+            let token = '';
             let tool = '';
             let color = 'auto';
             let excludes = '';
@@ -50,12 +52,14 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
             for (const line of lines) {
                 if (line.startsWith('user.name=')) name = line.substring(10);
                 if (line.startsWith('user.email=')) email = line.substring(11);
+                if (line.startsWith('github.token=')) token = line.substring(13);
                 if (line.startsWith('diff.tool=')) tool = line.substring(10);
                 if (line.startsWith('color.ui=')) color = line.substring(9);
                 if (line.startsWith('core.excludesfile=')) excludes = line.substring(18);
             }
             setUserName(name);
             setUserEmail(email);
+            setGithubToken(token);
             setDiffTool(tool);
             setColorUi(color);
             setExcludesFile(excludes);
@@ -84,6 +88,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
         try {
             await setConfig(repoPath, 'user.name', userName);
             await setConfig(repoPath, 'user.email', userEmail);
+            await setConfig(repoPath, 'github.token', githubToken);
             alert('User config saved!');
         } catch (e) {
             alert('Failed to save config');
@@ -183,7 +188,17 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                                     <Label className="text-right">Email</Label>
                                     <Input value={userEmail} onChange={e => setUserEmail(e.target.value)} className="col-span-3" />
                                 </div>
-                                <div className="flex justify-end">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">GitHub Token</Label>
+                                    <Input 
+                                        type="password" 
+                                        value={githubToken} 
+                                        onChange={e => setGithubToken(e.target.value)} 
+                                        className="col-span-3" 
+                                        placeholder="ghp_..." 
+                                    />
+                                </div>
+                                <div className="flex justify-end pt-2">
                                     <Button size="sm" onClick={handleSaveUser}><Save className="w-4 h-4 mr-2" /> Save Identity</Button>
                                 </div>
                             </TabsContent>

@@ -15,6 +15,7 @@ interface PR {
     html_url: string;
     head: { ref: string; sha: string };
     number: number;
+    status?: 'pending' | 'success' | 'error' | 'failure' | null;
 }
 
 interface SidebarPRSectionProps {
@@ -37,12 +38,11 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
     const loadConfig = async () => {
         try {
             const config = await getConfig(repoPath);
-            // Parse for github.token
             const lines = config.split('\n');
+            // Try github.token first, then fallback to any env/storage if we had one
             const tokenLine = lines.find((l: string) => l.startsWith('github.token='));
             if (tokenLine) setToken(tokenLine.split('=')[1]);
             
-            // Parse remote.origin.url
             const remoteLine = lines.find((l: string) => l.startsWith('remote.origin.url='));
             if (remoteLine) setRepoUrl(remoteLine.split('=')[1]);
         } catch (e) {
@@ -50,12 +50,20 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
         }
     };
 
+    const getStatusIcon = (status: PR['status']) => {
+        switch (status) {
+            case 'success': return <span className="text-green-500" title="Passed">✅</span>;
+            case 'failure':
+            case 'error': return <span className="text-red-500" title="Failed">❌</span>;
+            case 'pending': return <span className="text-yellow-500 animate-pulse" title="Pending">⏳</span>;
+            default: return null;
+        }
+    };
+
     const fetchPRs = async () => {
         if (!repoUrl) return;
         setLoading(true);
         try {
-            // Extract owner/repo from URL
-            // Format: https://github.com/owner/repo.git or git@github.com:owner/repo.git
             let cleanUrl = repoUrl.replace('.git', '');
             const parts = cleanUrl.split(/[/:]/);
             const repo = parts.pop();
@@ -68,8 +76,21 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
 
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, { headers });
             if (!res.ok) throw new Error("Failed to fetch PRs");
-            const data = await res.json();
-            setPrs(data);
+            let data = await res.json();
+            
+            // Fetch status for each PR head
+            const prsWithStatus = await Promise.all(data.map(async (pr: PR) => {
+                try {
+                    const statusRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/commits/${pr.head.sha}/status`, { headers });
+                    if (statusRes.ok) {
+                        const statusData = await statusRes.json();
+                        return { ...pr, status: statusData.state };
+                    }
+                } catch (e) {}
+                return pr;
+            }));
+
+            setPrs(prsWithStatus);
         } catch (e) {
             console.error(e);
         } finally {
@@ -77,7 +98,7 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
         }
     };
 
-    if (!repoUrl.includes('github.com')) return null;
+    if (!repoUrl || !repoUrl.includes('github.com')) return null;
 
     return (
         <SidebarSection 
@@ -96,7 +117,10 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
                     )}
                     {prs.map(pr => (
                         <div key={pr.id} className="group p-2 rounded hover:bg-muted text-xs cursor-pointer">
-                            <div className="font-medium truncate mb-1" title={pr.title}>#{pr.number} {pr.title}</div>
+                            <div className="flex items-start justify-between gap-2 mb-1">
+                                <div className="font-medium truncate" title={pr.title}>#{pr.number} {pr.title}</div>
+                                <div className="flex-shrink-0 text-[10px]">{getStatusIcon(pr.status)}</div>
+                            </div>
                             <div className="flex justify-between items-center text-muted-foreground">
                                 <span>{pr.user.login}</span>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
