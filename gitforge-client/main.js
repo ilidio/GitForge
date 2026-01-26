@@ -407,6 +407,74 @@ app.whenReady().then(() => {
       }
   });
 
+  ipcMain.handle('ai:reviewChanges', async (_, { diff, apiKey, endpoint, model, context }) => {
+    if (!diff) throw new Error("No diff provided");
+    if (!apiKey) throw new Error("API Key is required");
+    
+    const apiEndpoint = endpoint || 'https://api.openai.com/v1/chat/completions';
+    const apiModel = model || 'gpt-3.5-turbo';
+
+    const systemPrompt = `You are an expert senior software engineer and security researcher. 
+    Review the following git diff for bugs, security vulnerabilities, and code style improvements. 
+    Provide your feedback as a concise bulleted list in Markdown. 
+    Focus on high-impact issues and be specific.
+    ${context ? `\nAdditional requirements:\n${context}` : ''}`;
+
+    const prompt = `Please review these staged changes:\n\n${diff.substring(0, 5000)}`;
+
+    try {
+        if (apiEndpoint.includes('generativelanguage.googleapis.com')) {
+            const geminiUrl = `${apiEndpoint}?key=${apiKey}`;
+            const geminiPrompt = `${systemPrompt}\n\n${prompt}`;
+            
+            const response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: geminiPrompt }]
+                    }]
+                })
+            });
+
+            if (!response.ok) {
+                const err = await response.text();
+                throw new Error(`Gemini API Error: ${err}`);
+            }
+
+            const data = await response.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        } 
+        
+        const response = await fetch(apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: apiModel,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: prompt }
+                ],
+                temperature: 0.7
+            })
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            throw new Error(`AI API Error: ${err}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content?.trim();
+    } catch (error) {
+        console.error("AI Review Failed:", error);
+        throw error;
+    }
+});
+
   ipcMain.handle('git:showBinary', async (_, { repoPath, ref, filePath }) => {
       // Returns base64 string
       return new Promise((resolve, reject) => {
