@@ -106,7 +106,7 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
     // Folder Header Component
     const FolderHeader = (
         <div 
-            className={`flex items-center py-1 px-2 group cursor-pointer rounded select-none ${file && selectedFile === file.path ? 'bg-primary/10 border-primary/20' : 'hover:bg-muted'}`}
+            className={`flex items-center py-1 px-2 group cursor-pointer rounded select-none sticky top-0 bg-background z-10 ${file && selectedFile === file.path ? 'bg-primary/10 border-primary/20' : 'hover:bg-muted'}`}
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             onClick={(e) => {
                 // If it's a status item, clicking selects it. Otherwise toggles open.

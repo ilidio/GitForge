@@ -707,9 +707,10 @@ function isImage(path: string) {
   };
 
   const handleAICommit = async () => {
-      let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
-      let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
-      let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-3.5-turbo');
+    // AI Configuration
+    let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
+    let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
+    let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
 
       if (!apiKey) {
           alert('Please configure your AI API Key in Settings or .env.local file.');
@@ -1541,7 +1542,7 @@ function isImage(path: string) {
           {/* Status Column */}
           <div 
             style={{ width: changesWidth }} 
-            className="border-r flex flex-col bg-muted/5 relative h-full overflow-hidden flex-shrink-0"
+            className="border-r flex flex-col bg-background relative h-full overflow-hidden flex-shrink-0 z-10"
           >
             <div className="p-3 border-b font-medium bg-muted/50 flex justify-between items-center h-12 flex-shrink-0">
                 <span className="text-sm uppercase tracking-wider font-bold">
@@ -1718,7 +1719,7 @@ function isImage(path: string) {
                     <>
                         {/* Staged Changes */}
                         <div className="flex-1 flex flex-col min-h-0 border-b">
-                            <div className="p-2 pb-0 flex-shrink-0">
+                            <div className="p-2 pb-0 flex-shrink-0 bg-background z-10">
                                 <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                                     <span>Staged Changes ({status?.files?.filter((f: any) => f.status.includes("Staged")).length || 0})</span>
                                     <div className="flex gap-1">
@@ -1796,7 +1797,7 @@ function isImage(path: string) {
 
                         {/* Unstaged Changes */}
                         <div className="flex-1 flex flex-col min-h-0">
-                            <div className="p-2 pb-0 flex-shrink-0">
+                            <div className="p-2 pb-0 flex-shrink-0 bg-background z-10">
                                 <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                                     <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")).length || 0})</span>
                                     <div className="flex gap-1">
