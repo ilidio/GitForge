@@ -326,7 +326,7 @@ public class RepositoryController : ControllerBase
             var mergeTarget = request.Message; 
 
             // Try to lookup commit/branch
-            Commit commitToMerge = null;
+            Commit? commitToMerge = null;
             var branch = repo.Branches[mergeTarget];
             if (branch != null)
             {

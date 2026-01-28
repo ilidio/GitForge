@@ -730,7 +730,7 @@ function isImage(path: string) {
     // AI Configuration
     let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
     let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
-    let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
+    let model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
 
       if (!apiKey) {
           alert('Please configure your AI API Key in Settings or .env.local file.');
@@ -768,7 +768,7 @@ function isImage(path: string) {
     // AI Configuration
     let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
     let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
-    let model = (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || localStorage.getItem('ai_model') || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
+    let model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
 
       if (!apiKey) {
           alert('Please configure your AI API Key in Settings or .env.local file.');

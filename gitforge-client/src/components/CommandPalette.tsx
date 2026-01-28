@@ -72,7 +72,7 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath, 
             <Command.Item onSelect={() => { 
                 if (typeof window !== 'undefined' && (window as any).require) {
                     const { ipcRenderer } = (window as any).require('electron');
-                    ipcRenderer.invoke('dialog:openDirectory').then(result => {
+                    ipcRenderer.invoke('dialog:openDirectory').then((result: { canceled: boolean; filePaths: string[] }) => {
                         if (result && !result.canceled && result.filePaths.length > 0) {
                             // We need to trigger the open-repo logic. 
                             // Since we don't have direct access to Home state here easily without adding it to actions,
