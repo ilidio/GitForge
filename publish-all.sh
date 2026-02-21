@@ -7,13 +7,13 @@ echo "🚀 Starting Full GitForge Build..."
 echo "📦 Building Server binaries..."
 
 # macOS (arm64)
-dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -o ./gitforge-client/server-dist/mac
+dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r osx-arm64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./gitforge-client/server-dist/mac
 
 # Windows (x64)
-dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o ./gitforge-client/server-dist/win
+dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./gitforge-client/server-dist/win
 
 # Linux (x64)
-dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -o ./gitforge-client/server-dist/linux
+dotnet publish ./gitforge-server/GitForge.Server.csproj -c Release -r linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=true -o ./gitforge-client/server-dist/linux
 
 # 2. Package with Electron Builder
 echo "🏗️ Packaging Application..."
