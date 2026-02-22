@@ -66,7 +66,7 @@ display_help() {
     echo "Cross-compilation Notes:"
     echo "  - Building macOS apps (.dmg, .pkg) generally requires a macOS host."
     echo "  - Building Windows apps (.exe, .msi) can be done from any host, but native tools might be required for full features."
-    echo "  - Building Linux apps (.AppImage, .deb, .rpm) can be done from any host."
+    echo "  - Building Linux apps (.AppImage, .deb, .rpm, .snap) can be done from any host."
     echo "  - Ensure you have the necessary build dependencies installed for cross-compilation (e.g., Wine for Windows from Linux)."
     echo ""
 }
@@ -88,6 +88,48 @@ TARGET_ARCH=${2:-$HOST_ARCH}
 
 echo "Building for Target OS: $TARGET_OS, Target Arch: $TARGET_ARCH"
 
+# Map TARGET_OS and TARGET_ARCH to .NET RID
+case "$TARGET_OS" in
+    mac)
+        DOTNET_OS="osx"
+        ;;
+    win)
+        DOTNET_OS="win"
+        ;;
+    linux)
+        DOTNET_OS="linux"
+        ;;
+    *)
+        echo "Error: Invalid TARGET_OS '$TARGET_OS' for .NET publish."
+        exit 1
+        ;;
+esac
+
+case "$TARGET_ARCH" in
+    x64)
+        DOTNET_ARCH="x64"
+        ;;
+    arm64)
+        DOTNET_ARCH="arm64"
+        ;;
+    ia32)
+        DOTNET_ARCH="x86"
+        ;;
+    *)
+        echo "Error: Invalid TARGET_ARCH '$TARGET_ARCH' for .NET publish."
+        exit 1
+        ;;
+esac
+
+DOTNET_RID="${DOTNET_OS}-${DOTNET_ARCH}"
+echo "Mapped .NET RID: $DOTNET_RID"
+
+# Validation for .NET RIDs (e.g., macOS doesn't support x86 in modern .NET)
+if [[ "$DOTNET_OS" == "osx" && "$DOTNET_ARCH" == "x86" ]]; then
+    echo "Error: .NET does not support osx-x86. Use x64 or arm64 for macOS."
+    exit 1
+fi
+
 # Cleanup previous build artifacts
 echo "Cleaning up previous build artifacts..."
 rm -rf gitforge-client/dist
@@ -97,10 +139,29 @@ rm -rf gitforge-client/server-dist
 rm -rf gitforge-client/node_modules/.cache
 rm -rf dist
 
+# Build the .NET server sidecar
+echo "Building .NET server sidecar for $DOTNET_RID..."
+SERVER_OUTPUT_DIR="gitforge-client/server-dist/$TARGET_OS"
+mkdir -p "$SERVER_OUTPUT_DIR"
+
+dotnet publish gitforge-server/GitForge.Server.csproj \
+    -c Release \
+    -r "$DOTNET_RID" \
+    --self-contained true \
+    -p:PublishSingleFile=true \
+    -p:DebugType=embedded \
+    -o "$SERVER_OUTPUT_DIR"
+
+if [ $? -ne 0 ]; then
+    echo ".NET server build failed!"
+    exit 1
+fi
+echo ".NET server built successfully."
+
 # Build the Next.js frontend
 echo "Building Next.js frontend..."
 # Navigate to the client directory to run npm commands
-(cd gitforge-client && npm install && npm run build)
+(cd gitforge-client && npm install --legacy-peer-deps && npm run build)
 
 if [ $? -ne 0 ]; then
     echo "Next.js build failed!"
@@ -145,7 +206,7 @@ case "$TARGET_ARCH" in
 esac
 
 echo "Executing electron-builder command: $BUILDER_CMD"
-eval "$BUILDER_CMD"
+(cd gitforge-client && eval "$BUILDER_CMD")
 
 if [ $? -ne 0 ]; then
     echo "Electron build failed!"
@@ -159,21 +220,21 @@ echo ""
 echo "--- Build Artifacts ---"
 case "$TARGET_OS" in
     mac)
-        echo "macOS installers (DMG, PKG) should be in: dist/*.dmg, dist/*.pkg"
-        ls -lh dist/*.dmg 2>/dev/null
-        ls -lh dist/*.pkg 2>/dev/null
+        echo "macOS installers (DMG, PKG) should be in: gitforge-client/dist/*.dmg, gitforge-client/dist/*.pkg"
+        ls -lh gitforge-client/dist/*.dmg 2>/dev/null
+        ls -lh gitforge-client/dist/*.pkg 2>/dev/null
         ;;
     win)
-        echo "Windows installers (EXE, MSI) should be in: dist/*.exe, dist/*.msi"
-        ls -lh dist/*.exe 2>/dev/null
-        ls -lh dist/*.msi 2>/dev/null
+        echo "Windows installers (EXE, MSI) should be in: gitforge-client/dist/*.exe, gitforge-client/dist/*.msi"
+        ls -lh gitforge-client/dist/*.exe 2>/dev/null
+        ls -lh gitforge-client/dist/*.msi 2>/dev/null
         ;;
     linux)
-        echo "Linux packages (AppImage, deb, rpm, snap) should be in: dist/*.AppImage, dist/*.deb, dist/*.rpm, dist/*.snap"
-        ls -lh dist/*.AppImage 2>/dev/null
-        ls -lh dist/*.deb 2>/dev/null
-        ls -lh dist/*.rpm 2>/dev/null
-        ls -lh dist/*.snap 2>/dev/null
+        echo "Linux packages (AppImage, deb, rpm, snap) should be in: gitforge-client/dist/*.AppImage, gitforge-client/dist/*.deb, gitforge-client/dist/*.rpm, gitforge-client/dist/*.snap"
+        ls -lh gitforge-client/dist/*.AppImage 2>/dev/null
+        ls -lh gitforge-client/dist/*.deb 2>/dev/null
+        ls -lh gitforge-client/dist/*.rpm 2>/dev/null
+        ls -lh gitforge-client/dist/*.snap 2>/dev/null
         ;;
 esac
-echo "Check the 'dist/' directory for generated files."
+echo "Check the 'gitforge-client/dist/' directory for generated files."

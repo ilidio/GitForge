@@ -1,22 +1,40 @@
 #!/bin/bash
 set -e
 
-echo "Building GitForge Server for macOS (arm64)..."
+# publish-server.sh
+# A script to publish the GitForge .NET server sidecar.
 
-# Define paths
-SERVER_PROJECT="./gitforge-server/GitForge.Server.csproj"
-OUTPUT_DIR="./gitforge-client/server-dist"
+TARGET_OS=${1:-"mac"} # Default to mac for backward compatibility or host detection
+TARGET_ARCH=${2:-"arm64"}
 
-# Clean previous build
-rm -rf "$OUTPUT_DIR"
+case "$TARGET_OS" in
+    mac)   DOTNET_OS="osx" ;;
+    win)   DOTNET_OS="win" ;;
+    linux) DOTNET_OS="linux" ;;
+    *)     echo "Unknown OS: $TARGET_OS"; exit 1 ;;
+esac
+
+case "$TARGET_ARCH" in
+    x64)   DOTNET_ARCH="x64" ;;
+    arm64) DOTNET_ARCH="arm64" ;;
+    ia32)  DOTNET_ARCH="x86" ;;
+    *)     echo "Unknown Arch: $TARGET_ARCH"; exit 1 ;;
+esac
+
+DOTNET_RID="${DOTNET_OS}-${DOTNET_ARCH}"
+OUTPUT_DIR="./gitforge-client/server-dist/$TARGET_OS"
+
+echo "Publishing GitForge Server for $DOTNET_RID..."
+echo "Output directory: $OUTPUT_DIR"
 
 # Publish self-contained single-file executable
-dotnet publish "$SERVER_PROJECT" \
+dotnet publish "./gitforge-server/GitForge.Server.csproj" \
   -c Release \
-  -r osx-arm64 \
+  -r "$DOTNET_RID" \
   --self-contained true \
   -p:PublishSingleFile=true \
+  -p:IncludeNativeLibrariesForSelfExtract=true \
   -p:DebugType=embedded \
   -o "$OUTPUT_DIR"
 
-echo "Build complete. Server binary is located at $OUTPUT_DIR/GitForge.Server"
+echo "Build complete. Server binary is located at $OUTPUT_DIR"

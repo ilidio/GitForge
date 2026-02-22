@@ -1,24 +1,32 @@
-# Building GitForge Server for Windows (x64)
+# publish-server.ps1
+# A script to publish the GitForge .NET server sidecar.
 $ErrorActionPreference = "Stop"
 
-Write-Host "Building GitForge Server for Windows (x64)..." -ForegroundColor Cyan
+param (
+    [string]$TargetOS = "win",
+    [string]$TargetArch = "x64"
+)
 
-# Define paths
-$SERVER_PROJECT = ".\gitforge-server\GitForge.Server.csproj"
-$OUTPUT_DIR = ".\gitforge-client\server-dist"
+$DotnetOS = $TargetOS
+if ($TargetOS -eq "mac") { $DotnetOS = "osx" }
 
-# Clean previous build
-if (Test-Path $OUTPUT_DIR) {
-    Remove-Item -Path $OUTPUT_DIR -Recurse -Force
-}
+$DotnetArch = $TargetArch
+if ($TargetArch -eq "ia32") { $DotnetArch = "x86" }
+
+$DotnetRID = "$DotnetOS-$DotnetArch"
+$OutputDir = ".\gitforge-client\server-dist\$TargetOS"
+
+Write-Host "Publishing GitForge Server for $DotnetRID..." -ForegroundColor Cyan
+Write-Host "Output directory: $OutputDir" -ForegroundColor Gray
 
 # Publish self-contained single-file executable
-dotnet publish $SERVER_PROJECT `
+dotnet publish ".\gitforge-server\GitForge.Server.csproj" `
   -c Release `
-  -r win-x64 `
+  -r $DotnetRID `
   --self-contained true `
   -p:PublishSingleFile=true `
+  -p:IncludeNativeLibrariesForSelfExtract=true `
   -p:DebugType=embedded `
-  -o $OUTPUT_DIR
+  -o $OutputDir
 
-Write-Host "`n✅ Build complete. Server binary is located at $OUTPUT_DIR\GitForge.Server.exe" -ForegroundColor Green
+Write-Host "`n✅ Build complete. Server binary is located at $OutputDir" -ForegroundColor Green
