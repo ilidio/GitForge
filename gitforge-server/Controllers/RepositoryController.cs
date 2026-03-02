@@ -397,6 +397,8 @@ public class RepositoryController : ControllerBase
             var tree = commit.Tree;
             var parentTree = parent?.Tree;
 
+            // If no parent (initial commit), compare with an empty tree or handle manually
+            // repo.Diff.Compare with null parentTree works as comparing against empty
             var diff = repo.Diff.Compare<TreeChanges>(parentTree, tree);
 
             foreach (var change in diff)
@@ -419,13 +421,19 @@ public class RepositoryController : ControllerBase
         {
             using var repo = new Repository(repoPath);
             var commit = repo.Lookup<Commit>(commitSha);
+            if (commit == null) return NotFound("Commit not found");
+            
             var parent = commit.Parents.FirstOrDefault();
 
             var blob = commit[filePath]?.Target as Blob;
             var modifiedContent = blob?.GetContentText() ?? "";
 
-            var parentBlob = parent?[filePath]?.Target as Blob;
-            var originalContent = parentBlob?.GetContentText() ?? "";
+            string originalContent = "";
+            if (parent != null)
+            {
+                var parentBlob = parent[filePath]?.Target as Blob;
+                originalContent = parentBlob?.GetContentText() ?? "";
+            }
 
             return Ok(new GitFileDiff(filePath, originalContent, modifiedContent));
         }
