@@ -1,0 +1,93 @@
+name: Build and Package GitForge
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ created ]
+
+jobs:
+  build:
+    name: Build and Package (${{ matrix.os }}, ${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x64
+            target: linux
+            dotnet_rid: linux-x64
+          - os: windows-latest
+            arch: x64
+            target: win
+            dotnet_rid: win-x64
+          - os: macos-latest
+            arch: x64
+            target: mac
+            dotnet_rid: osx-x64
+          - os: macos-latest
+            arch: arm64
+            target: mac
+            dotnet_rid: osx-arm64
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: gitforge-client/package-lock.json
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install Dependencies
+        working-directory: gitforge-client
+        run: npm install --legacy-peer-deps
+
+      - name: Run Tests
+        working-directory: gitforge-client
+        run: npm run test
+
+      - name: Build .NET Server Sidecar
+        shell: bash
+        run: |
+          mkdir -p gitforge-client/server-dist/${{ matrix.target }}
+          dotnet publish gitforge-server/GitForge.Server.csproj \
+            -c Release \
+            -r ${{ matrix.dotnet_rid }} \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:DebugType=embedded \
+            -o gitforge-client/server-dist/${{ matrix.target }}
+
+      - name: Build Next.js Frontend
+        working-directory: gitforge-client
+        run: npm run build
+
+      - name: Package with Electron Builder
+        working-directory: gitforge-client
+        shell: bash
+        run: |
+          PUBLISH_FLAG=""
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            PUBLISH_FLAG="--publish always"
+          fi
+          npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} $PUBLISH_FLAG
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitforge-${{ matrix.target }}-${{ matrix.arch }}
+          path: gitforge-client/dist/*
+          if-no-files-found: error
