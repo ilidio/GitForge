@@ -15,7 +15,7 @@
     "electron": "electron .",
     "dist": "next build && electron-builder",
     "prod": "cd .. && ./publish-server.sh && cd gitforge-client && npm run dist",
-    "test": "vitest run",
+    "test": "vitest run"
   },
   "build": {
     "appId": "com.gitforge.app",
