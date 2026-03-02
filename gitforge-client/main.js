@@ -141,15 +141,18 @@ function runGit(command, repoPath, options = { trim: true }) {
 
 function startSidecar() {
   const isWindows = process.platform === 'win32';
+  const isMac = process.platform === 'darwin';
   const dotnetCmd = isWindows ? 'dotnet.exe' : 'dotnet';
 
   if (!app.isPackaged) {
     console.log('Starting sidecar in dev mode...');
     const serverPath = path.resolve(__dirname, '..', 'gitforge-server');
+    
+    // In dev mode, we use 'dotnet run'. On Mac, shell: true helps pick up the environment.
     sidecarProcess = spawn(dotnetCmd, ['run', '--project', 'GitForge.Server.csproj'], {
       cwd: serverPath,
       stdio: 'inherit',
-      shell: isWindows 
+      shell: isWindows || isMac
     });
   } else {
     const binaryName = isWindows ? 'GitForge.Server.exe' : 'GitForge.Server';
@@ -218,6 +221,43 @@ app.whenReady().then(() => {
   });
 
   // --- Git IPC Handlers ---
+
+  ipcMain.handle('git:commitChanges', async (_, { repoPath, sha }) => {
+      // Get file list and statuses for a commit
+      // --name-status gives A/M/D etc.
+      // --pretty=format: ensures we don't get the commit message again
+      const output = await runGit(`git show --name-status --pretty=format: ${sha}`, repoPath);
+      if (!output) return [];
+      
+      return output.split('\n').filter(Boolean).map(line => {
+          const parts = line.split('\t');
+          if (parts.length < 2) return null;
+          return { path: parts[1], status: parts[0] };
+      }).filter(Boolean);
+  });
+
+  ipcMain.handle('git:getCommitFileDiff', async (_, { repoPath, sha, filePath }) => {
+      // Get the patch
+      const patch = await runGit(`git show ${sha} -- "${filePath}"`, repoPath);
+      
+      // Get original content (from parent)
+      let original = '';
+      try {
+          original = await runGit(`git show ${sha}^:"${filePath}"`, repoPath);
+      } catch (e) {
+          // Might be a new file
+      }
+      
+      // Get modified content (from this commit)
+      let modified = '';
+      try {
+          modified = await runGit(`git show ${sha}:"${filePath}"`, repoPath);
+      } catch (e) {
+          // Might be a deleted file
+      }
+      
+      return { patch, originalContent: original, modifiedContent: modified };
+  });
 
   ipcMain.handle('git:log', async (_, { repoPath, count = 50 }) => {
       // Added %G? for GPG signature status: G=Good, B=Bad, U=Unknown, X=Expired, Y=ExpiredKey, R=RevokedKey, E=CantCheck, N=None

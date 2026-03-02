@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { getFileDiff, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
-import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, reviewChanges, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged } from '@/lib/electron';
+import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, reviewChanges, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged, getCommitChangesElectron, getCommitFileDiffElectron } from '@/lib/electron';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
 import PatchView from '@/components/PatchView';
@@ -578,10 +578,17 @@ export default function Home() {
       setSelectedFile(null);
       setDiffData(null);
       try {
-          const files = await getCommitChanges(repoPath, commit.id);
+          const files = await getCommitChangesElectron(repoPath, commit.id);
           setCommitFiles(files);
       } catch (err) {
           console.error("Failed to load commit changes", err);
+          // Fallback to API if Electron fails (though unlikely)
+          try {
+              const files = await getCommitChanges(repoPath, commit.id);
+              setCommitFiles(files);
+          } catch (e) {
+              console.error("API fallback failed too", e);
+          }
       }
   };
 
@@ -679,7 +686,12 @@ function isImage(path: string) {
                 isStaged
             };
         } else {
-            diff = await getCommitFileDiff(repoPath, selectedCommit.id, filePath);
+            try {
+                diff = await getCommitFileDiffElectron(repoPath, selectedCommit.id, filePath);
+            } catch (err) {
+                console.error("Electron diff failed, trying API", err);
+                diff = await getCommitFileDiff(repoPath, selectedCommit.id, filePath);
+            }
         }
         setDiffData(diff);
     } catch (err) {

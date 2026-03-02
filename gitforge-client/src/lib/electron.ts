@@ -12,6 +12,16 @@ if (typeof window !== 'undefined' && (window as any).require) {
     }
 }
 
+export async function getCommitChangesElectron(repoPath: string, sha: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:commitChanges', { repoPath, sha });
+}
+
+export async function getCommitFileDiffElectron(repoPath: string, sha: string, filePath: string) {
+    if (!ipcRenderer) throw new Error("Not in Electron environment");
+    return ipcRenderer.invoke('git:getCommitFileDiff', { repoPath, sha, filePath });
+}
+
 export async function getLog(repoPath: string, count = 50) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     const output = await ipcRenderer.invoke('git:log', { repoPath, count });

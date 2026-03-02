@@ -252,6 +252,19 @@ public class RepositoryControllerTests : IDisposable
     }
 
     [Fact]
+    public void GetCommitChanges_WithShortSha_ReturnsChanges()
+    {
+        var controller = new RepositoryController();
+        string shortSha;
+        using (var repo = new Repository(_testRepoPath)) { shortSha = repo.Head.Tip.Sha.Substring(0, 7); }
+
+        var result = controller.GetCommitChanges(_testRepoPath, shortSha);
+        var okResult = Assert.IsType<OkObjectResult>(result);
+        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value);
+        Assert.NotEmpty(changes);
+    }
+
+    [Fact]
     public void GetDiff_ReturnsDiffData()
     {
         var controller = new RepositoryController();
