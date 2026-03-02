@@ -53,9 +53,12 @@ jobs:
         working-directory: gitforge-client
         run: npm install --legacy-peer-deps
 
-      - name: Run Tests
+      - name: Run Frontend Tests
         working-directory: gitforge-client
         run: npm run test
+
+      - name: Run Backend Tests
+        run: dotnet test GitForge.sln --verbosity normal
 
       - name: Build .NET Server Sidecar
         shell: bash

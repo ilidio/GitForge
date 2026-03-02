@@ -11,11 +11,11 @@
     "dev": "concurrently \"next dev\" \"wait-on http://localhost:3000 && electron .\"",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint --dir src",
     "electron": "electron .",
     "dist": "next build && electron-builder",
     "prod": "cd .. && ./publish-server.sh && cd gitforge-client && npm run dist",
-    "test": "vitest"
+    "test": "vitest run",
   },
   "build": {
     "appId": "com.gitforge.app",
