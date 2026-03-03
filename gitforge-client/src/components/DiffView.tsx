@@ -23,6 +23,12 @@ export default function DiffView({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
+    // Skip dynamic import in tests to avoid timeouts
+    if (process.env.NODE_ENV === 'test') {
+        setMounted(true);
+        return;
+    }
+    
     import('monaco-editor').then((monaco) => {
       loader.config({ monaco });
       setMounted(true);

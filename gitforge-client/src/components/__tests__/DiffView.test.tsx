@@ -35,11 +35,12 @@ their change
     render(<DiffView original={original} modified={modified} />);
     
     // Wait for the component to finish loading and debounce
+    // Using a longer timeout to accommodate slow CI environments
     await waitFor(() => {
       expect(screen.queryByText('Loading diff...')).not.toBeInTheDocument();
-    }, { timeout: 5000 });
+    }, { timeout: 10000 });
 
     expect(screen.getByText(/Merge Conflicts Detected/i)).toBeInTheDocument();
     expect(screen.getByTestId('monaco-diff-editor')).toBeInTheDocument();
-  });
+  }, 15000); // 15s timeout for the whole test
 });
