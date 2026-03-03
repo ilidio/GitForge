@@ -46,7 +46,7 @@ public class RepositoryControllerTests : IDisposable
         var result = controller.GetStatus(_testRepoPath);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var status = Assert.IsType<GitRepoStatus>(okResult.Value);
+        var status = Assert.IsType<GitRepoStatus>(okResult.Value!);
         Assert.Contains(status.Files, f => f.Path == "new.txt");
     }
 
@@ -56,7 +56,7 @@ public class RepositoryControllerTests : IDisposable
         var controller = new RepositoryController();
         var branchName = "test-branch";
 
-        var result = controller.CreateBranch(_testRepoPath, branchName, null);
+        var result = controller.CreateBranch(_testRepoPath, branchName, null!);
 
         Assert.IsType<OkResult>(result);
         using var repo = new Repository(_testRepoPath);
@@ -125,7 +125,7 @@ public class RepositoryControllerTests : IDisposable
         var result = controller.GetLog(_testRepoPath, 10);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var commits = Assert.IsType<List<GitCommit>>(okResult.Value);
+        var commits = Assert.IsType<List<GitCommit>>(okResult.Value!);
         Assert.NotEmpty(commits);
         Assert.Equal("Initial commit", commits[0].Message);
     }
@@ -146,7 +146,7 @@ public class RepositoryControllerTests : IDisposable
         // Get Stashes
         var getResult = controller.GetStashes(_testRepoPath);
         var okGetResult = Assert.IsType<OkObjectResult>(getResult);
-        var stashes = Assert.IsType<List<GitStashItem>>(okGetResult.Value);
+        var stashes = Assert.IsType<List<GitStashItem>>(okGetResult.Value!);
         Assert.Single(stashes);
         Assert.Contains("Stash msg", stashes[0].Message);
 
@@ -166,7 +166,7 @@ public class RepositoryControllerTests : IDisposable
         var controller = new RepositoryController();
         
         // Create another branch and commit
-        controller.CreateBranch(_testRepoPath, "other", null);
+        controller.CreateBranch(_testRepoPath, "other", null!);
         using (var repo = new Repository(_testRepoPath))
         {
             Commands.Checkout(repo, "other");
@@ -183,7 +183,7 @@ public class RepositoryControllerTests : IDisposable
         var result = controller.Merge(request);
 
         var okResult = Assert.IsType<OkObjectResult>(result);
-        Assert.Contains("FastForward", okResult.Value.ToString());
+        Assert.Contains("FastForward", okResult.Value!.ToString()!);
         
         Assert.True(File.Exists(Path.Combine(_testRepoPath, "other.txt")));
     }
@@ -194,7 +194,7 @@ public class RepositoryControllerTests : IDisposable
         var controller = new RepositoryController();
         
         string otherSha;
-        controller.CreateBranch(_testRepoPath, "cp-branch", null);
+        controller.CreateBranch(_testRepoPath, "cp-branch", null!);
         using (var repo = new Repository(_testRepoPath))
         {
             Commands.Checkout(repo, "cp-branch");
@@ -202,7 +202,7 @@ public class RepositoryControllerTests : IDisposable
             Commands.Stage(repo, "cp.txt");
             var sig = new Signature("Test", "test@test.com", System.DateTimeOffset.Now);
             var commit = repo.Commit("CP commit", sig, sig);
-            otherSha = commit.Id.Sha;
+            otherSha = commit!.Id.Sha;
             
             Commands.Checkout(repo, "master");
         }
@@ -220,7 +220,7 @@ public class RepositoryControllerTests : IDisposable
     {
         var controller = new RepositoryController();
         var branchName = "checkout-test";
-        controller.CreateBranch(_testRepoPath, branchName, null);
+        controller.CreateBranch(_testRepoPath, branchName, null!);
 
         // Checkout branch
         var result = controller.Checkout(_testRepoPath, branchName);
@@ -247,7 +247,7 @@ public class RepositoryControllerTests : IDisposable
 
         var result = controller.GetCommitChanges(_testRepoPath, tipSha);
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value);
+        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value!);
         Assert.NotEmpty(changes);
     }
 
@@ -260,7 +260,7 @@ public class RepositoryControllerTests : IDisposable
 
         var result = controller.GetCommitChanges(_testRepoPath, shortSha);
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value);
+        var changes = Assert.IsType<List<GitFileStatus>>(okResult.Value!);
         Assert.NotEmpty(changes);
     }
 
@@ -273,7 +273,7 @@ public class RepositoryControllerTests : IDisposable
 
         var result = controller.GetDiff(_testRepoPath, filePath);
         var okResult = Assert.IsType<OkObjectResult>(result);
-        var diff = Assert.IsType<GitFileDiff>(okResult.Value);
+        var diff = Assert.IsType<GitFileDiff>(okResult.Value!);
         
         Assert.Equal("content", diff.OriginalContent);
         Assert.Equal("modified content", diff.ModifiedContent);
