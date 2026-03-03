@@ -5,6 +5,10 @@
   "description": "A modern, AI-powered Git client built with web technologies.",
   "author": "Ilidio Martins <ilidio.martins@gmail.com>",
   "homepage": "https://github.com/ilidiomartins/gitforge",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ilidiomartins/gitforge.git"
+  },
   "private": true,
   "main": "main.js",
   "scripts": {
