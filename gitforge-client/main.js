@@ -200,7 +200,7 @@ async function createWindow() {
   if (process.platform === 'darwin') {
       try {
         app.dock.setIcon(path.join(__dirname, 'public', 'logo.png'));
-      } catch (e) { console.error("Failed to set dock icon", e); }
+      } catch { console.error("Failed to set dock icon"); }
   }
 
   if (app.isPackaged) {
@@ -244,7 +244,7 @@ app.whenReady().then(() => {
       let original = '';
       try {
           original = await runGit(`git show ${sha}^:"${filePath}"`, repoPath);
-      } catch (e) {
+      } catch {
           // Might be a new file
       }
       
@@ -517,7 +517,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:showBinary', async (_, { repoPath, ref, filePath }) => {
       // Returns base64 string
-      return new Promise((resolve, reject) => {
+      return new Promise((resolve) => {
           // git show ref:path
           const child = spawn('git', ['show', `${ref}:${filePath}`], { cwd: repoPath });
           const chunks = [];
@@ -544,16 +544,16 @@ app.whenReady().then(() => {
           // Staged: HEAD vs Index
           try {
               original = await runGit(`git show HEAD:"${filePath}"`, repoPath);
-          } catch (e) {}
+          } catch {}
           try {
               // Quote the entire refspec for index lookup
               modified = await runGit(`git show ":${filePath}"`, repoPath);
-          } catch (e) {}
+          } catch {}
       } else {
           // Unstaged: Index vs Workdir
           try {
               original = await runGit(`git show ":${filePath}"`, repoPath);
-          } catch (e) {
+          } catch {
               // If not in index (untracked), original is empty
           }
           try {
@@ -561,7 +561,7 @@ app.whenReady().then(() => {
               if (fs.existsSync(normalizedPath)) {
                   modified = fs.readFileSync(normalizedPath, 'utf8');
               }
-          } catch (e) {}
+          } catch {}
       }
 
       return { patch, original, modified };
@@ -628,7 +628,7 @@ app.whenReady().then(() => {
       try {
           fs.unlinkSync(fileATmp);
           fs.unlinkSync(fileBTmp);
-      } catch (e) {}
+      } catch {}
 
       // Re-run the diff more carefully if first attempt failed
       if (!patch || !patch.startsWith('diff')) {
@@ -700,7 +700,7 @@ app.whenReady().then(() => {
       ipcMain.on('terminal:input', (_, data) => {
           try {
             pty.stdin.write(data);
-          } catch(e) {}
+          } catch {}
       });
       
       ipcMain.on('terminal:resize', (_, { cols, rows }) => {
@@ -904,11 +904,11 @@ app.whenReady().then(() => {
       // Revert workdir to Index (keeps staged changes)
       try {
           await runGit(`git checkout -- "${filePath}"`, repoPath);
-      } catch (e) {}
+      } catch {}
       // Remove untracked
       try {
           await runGit(`git clean -f "${filePath}"`, repoPath);
-      } catch (e) {}
+      } catch {}
   });
 
   ipcMain.handle('git:status', async (_, repoPath) => {
