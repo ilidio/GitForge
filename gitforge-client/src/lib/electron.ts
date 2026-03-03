@@ -339,7 +339,14 @@ export async function discardUnstaged(repoPath: string, filePath: string) {
 
 export async function getRepoStatus(repoPath: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
-    const output = await ipcRenderer.invoke('git:status', repoPath);
+    
+    const [output, branches] = await Promise.all([
+        ipcRenderer.invoke('git:status', repoPath),
+        getBranches(repoPath).catch(() => [])
+    ]);
+
+    const head = branches.find((b: any) => b.isCurrentRepositoryHead)?.name || "Detached HEAD";
+
     // Parse output
     // XY PATH
     // ?? untracked
@@ -348,17 +355,26 @@ export async function getRepoStatus(repoPath: string) {
         const path = line.substring(3);
         
         let fullStatus = "";
-        if (statusChar.includes('?')) fullStatus = "Untracked";
-        else {
-             if (statusChar[0] !== ' ') fullStatus += "Staged";
-             if (statusChar[1] !== ' ') fullStatus += (fullStatus ? " & " : "") + "Unstaged";
+        
+        // Handle conflicts (U in any position)
+        if (statusChar.includes('U') || (statusChar[0] === 'A' && statusChar[1] === 'A') || (statusChar[0] === 'D' && statusChar[1] === 'D')) {
+            fullStatus = "Conflicted";
+        } else if (statusChar.includes('?')) {
+            fullStatus = "Untracked";
+        } else {
+             const staged = statusChar[0] !== ' ' && statusChar[0] !== '?';
+             const unstaged = statusChar[1] !== ' ' && statusChar[1] !== '?';
+             
+             if (staged && unstaged) fullStatus = "Staged & Unstaged";
+             else if (staged) fullStatus = "Staged";
+             else if (unstaged) fullStatus = "Unstaged";
         }
         
         if (!fullStatus) fullStatus = "Modified"; // Fallback
 
         return { path, status: fullStatus, rawStatus: statusChar };
     });
-    return { files };
+    return { head, files };
 }
 
 export async function getBranches(repoPath: string) {

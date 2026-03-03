@@ -24,12 +24,16 @@ describe('electron lib wrappers', () => {
     });
   });
 
-  it('getRepoStatus invokes git:status and parses porcelain output', async () => {
-    ipcRenderer.invoke.mockResolvedValue('M  staged.txt\n M unstaged.txt\n?? untracked.txt');
+  it('getRepoStatus invokes git:status and branches, then parses porcelain output', async () => {
+    // First call: git:status
+    ipcRenderer.invoke.mockResolvedValueOnce('M  staged.txt\n M unstaged.txt\n?? untracked.txt');
+    // Second call: git:branches (via getBranches)
+    ipcRenderer.invoke.mockResolvedValueOnce('SHA1|refs/heads/master|*');
     
     const status = await electron.getRepoStatus('/path');
     
     expect(ipcRenderer.invoke).toHaveBeenCalledWith('git:status', '/path');
+    expect(status.head).toBe('master');
     expect(status.files).toHaveLength(3);
     expect(status.files[0]).toMatchObject({ path: 'staged.txt', status: 'Staged' });
     expect(status.files[1]).toMatchObject({ path: 'unstaged.txt', status: 'Unstaged' });

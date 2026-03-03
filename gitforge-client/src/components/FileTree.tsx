@@ -100,7 +100,7 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
     
     // If this folder node has fileData, it means it's a status item itself (e.g. untracked dir)
     const file = node.fileData;
-    const isStaged = checked !== undefined ? checked : (file ? (file.status.includes("Index") || file.status === "Staged") : false);
+    const isStaged = checked !== undefined ? checked : (file ? (file.status.includes("Staged") || file.status.includes("Index")) : false);
     const isConflicted = file ? file.status.includes("Conflicted") : false;
 
     // Folder Header Component
@@ -211,7 +211,7 @@ function TreeItem({ node, level, selectedFile, onFileClick, onToggleStage, viewM
                     {node.files.sort((a: any, b: any) => a.path.localeCompare(b.path)).map((file: any) => {
                         const isDir = file.path.endsWith('/');
                         const fileName = file.path.replace(/\/$/, '').split('/').pop();
-                        const isStaged = checked !== undefined ? checked : (file.status.includes("Index") || file.status === "Staged");
+                        const isStaged = checked !== undefined ? checked : (file.status.includes("Staged") || file.status.includes("Index"));
                         const isConflicted = file.status.includes("Conflicted");
 
                         return (

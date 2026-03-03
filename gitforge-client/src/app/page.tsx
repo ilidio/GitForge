@@ -1638,13 +1638,13 @@ function isImage(path: string) {
                         >
                             <RefreshCw className="h-3 w-3" />
                         </Button>
-                        {status?.files?.some((f: any) => !f.status.includes("Index") && f.status !== "Staged") && (
+                        {status?.files?.some((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified") && (
                             <Button variant="ghost" size="sm" onClick={async () => {
                                 if (!status?.files) return;
                                 setActionLoading(true);
                                 try {
                                     for (const file of status.files) {
-                                        if (!file.status.includes("Index") && file.status !== "Staged") {
+                                        if (file.status.includes("Unstaged") || file.status.includes("Workdir") || file.status.includes("Untracked") || file.status === "Modified") {
                                             await stageFile(repoPath, file.path);
                                         }
                                     }
@@ -1654,13 +1654,13 @@ function isImage(path: string) {
                                 Stage All
                             </Button>
                         )}
-                        {status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged") && (
+                        {status?.files?.some((f: any) => f.status.includes("Staged") || f.status.includes("Index")) && (
                             <Button variant="ghost" size="sm" onClick={async () => {
                                 if (!status?.files) return;
                                 setActionLoading(true);
                                 try {
                                     for (const file of status.files) {
-                                        if (file.status.includes("Index") || file.status === "Staged") {
+                                        if (file.status.includes("Staged") || file.status.includes("Index")) {
                                             await unstageFile(repoPath, file.path);
                                         }
                                     }
@@ -1840,7 +1840,7 @@ function isImage(path: string) {
                             <ScrollArea className="flex-1">
                                 <div className="p-2 pt-0">
                                     <FileTree 
-                                        files={status?.files?.filter((f: any) => f.status.includes("Staged")) || []}
+                                        files={status?.files?.filter((f: any) => f.status.includes("Staged") || f.status.includes("Index")) || []}
                                         selectedFile={selectedFile}
                                         onFileClick={(path) => { setSelectedCommit(null); handleFileClick(path, true); }}
                                         onToggleStage={async (file) => {
@@ -1873,14 +1873,14 @@ function isImage(path: string) {
                         <div className="flex-1 flex flex-col min-h-0">
                             <div className="p-2 pb-0 flex-shrink-0 bg-background z-10">
                                 <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-                                    <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")).length || 0})</span>
+                                    <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified").length || 0})</span>
                                     <div className="flex gap-1">
                                         <Button 
                                             variant="ghost" 
                                             size="sm" 
                                             className="h-5 px-2 text-[10px]"
                                             onClick={async () => {
-                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified") || [];
                                                 if (unstaged.length === 0) return;
                                                 setActionLoading(true);
                                                 try {
@@ -1898,7 +1898,7 @@ function isImage(path: string) {
                                             size="sm" 
                                             className="h-5 px-2 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10"
                                             onClick={async () => {
-                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || [];
+                                                const unstaged = status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified") || [];
                                                 if (unstaged.length === 0) return;
                                                 if (!confirm("Discard all unstaged changes? This cannot be undone.")) return;
                                                 setActionLoading(true);
@@ -1918,7 +1918,7 @@ function isImage(path: string) {
                             <ScrollArea className="flex-1">
                                 <div className="p-2 pt-0">
                                     <FileTree 
-                                        files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Untracked")) || []}
+                                        files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified") || []}
                                         selectedFile={selectedFile}
                                         onFileClick={(path) => { setSelectedCommit(null); handleFileClick(path, false); }}
                                         onToggleStage={async (file) => {
@@ -2522,8 +2522,8 @@ function isImage(path: string) {
           <div className="flex items-center gap-3">
               {status?.files && (
                   <>
-                      <span>{status.files.filter((f: any) => f.status.includes("Index") || f.status === "Staged").length} staged</span>
-                      <span>{status.files.filter((f: any) => !f.status.includes("Index") && f.status !== "Staged").length} unstaged</span>
+                      <span>{status.files.filter((f: any) => f.status.includes("Staged") || f.status.includes("Index")).length} staged</span>
+                      <span>{status.files.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified").length} unstaged</span>
                   </>
               )}
               <span className="opacity-70">GitForge v0.1.0</span>
