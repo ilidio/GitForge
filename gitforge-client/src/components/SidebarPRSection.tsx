@@ -64,7 +64,7 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
         if (!repoUrl) return;
         setLoading(true);
         try {
-            let cleanUrl = repoUrl.replace('.git', '');
+            const cleanUrl = repoUrl.replace('.git', '');
             const parts = cleanUrl.split(/[/:]/);
             const repo = parts.pop();
             const owner = parts.pop();
@@ -76,7 +76,7 @@ export default function SidebarPRSection({ repoPath, onCheckout }: SidebarPRSect
 
             const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls`, { headers });
             if (!res.ok) throw new Error("Failed to fetch PRs");
-            let data = await res.json();
+            const data = await res.json();
             
             // Fetch status for each PR head
             const prsWithStatus = await Promise.all(data.map(async (pr: PR) => {

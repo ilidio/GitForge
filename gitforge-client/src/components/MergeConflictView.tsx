@@ -73,7 +73,7 @@ export default function MergeConflictView({ filePath, content, onResolve, repoPa
     const handleSave = async () => {
         setLoading(true);
         try {
-            let result: string[] = [];
+            const result: string[] = [];
             let lastIndex = 0;
 
             for (const block of blocks) {

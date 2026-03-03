@@ -24,7 +24,7 @@ export default function PatchView({ diff, repoPath, onStage, isStaged }: PatchVi
         const lines = diff.split('\n');
         const hunks: Hunk[] = [];
         let currentHunk: Hunk | null = null;
-        let headerLines: string[] = [];
+        const headerLines: string[] = [];
 
         // Parse Git Diff to find Hunks
         // Header looks like: `diff --git ...` until `@@ ... @@`

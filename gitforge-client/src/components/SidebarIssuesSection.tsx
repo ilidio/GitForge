@@ -50,7 +50,7 @@ export default function SidebarIssuesSection({ repoPath }: SidebarIssuesSectionP
         if (!repoUrl) return;
         setLoading(true);
         try {
-            let cleanUrl = repoUrl.replace('.git', '');
+            const cleanUrl = repoUrl.replace('.git', '');
             const parts = cleanUrl.split(/[/:]/);
             const repo = parts.pop();
             const owner = parts.pop();

@@ -121,7 +121,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                             </div>
                                             <div className="p-5 rounded-xl bg-muted/20 border border-muted-foreground/10">
                                                 <div className="text-sm font-bold mb-2">Amend & Soft Undo</div>
-                                                <p className="text-xs text-muted-foreground">Use "Amend" to squash into the latest commit, or the Undo button for a 1-click soft reset that keeps your work staged.</p>
+                                                <p className="text-xs text-muted-foreground">Use &quot;Amend&quot; to squash into the latest commit, or the Undo button for a 1-click soft reset that keeps your work staged.</p>
                                             </div>
                                         </div>
                                     </section>
@@ -144,7 +144,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                         </h3>
                                         <p className="text-sm text-muted-foreground leading-relaxed">
                                             The <strong>History Graph</strong> supports multiple views: SourceTree, Compact, and Detailed. 
-                                            Toggle the "Terminal" button to switch to an ASCII-style graph. <strong>Right-click</strong> any commit in the graph to Checkout, Merge, or Cherry-pick.
+                                            Toggle the &quot;Terminal&quot; button to switch to an ASCII-style graph. <strong>Right-click</strong> any commit in the graph to Checkout, Merge, or Cherry-pick.
                                         </p>
                                         <div className="grid grid-cols-2 gap-4">
                                             <div className="p-4 bg-muted/10 rounded-lg border flex gap-4 items-center">
@@ -182,7 +182,7 @@ export default function HelpDialog({ open, onOpenChange }: HelpDialogProps) {
                                                 <div>
                                                     <div className="text-sm font-bold mb-1">Repository Insights</div>
                                                     <p className="text-xs text-muted-foreground leading-relaxed">
-                                                        Click the chart icon in the top bar to visualize your project's health. View <strong>Author Leaderboards</strong>, <strong>Activity Heatmaps</strong>, and identify <strong>Hot Files</strong> that change most often.
+                                                        Click the chart icon in the top bar to visualize your project&apos;s health. View <strong>Author Leaderboards</strong>, <strong>Activity Heatmaps</strong>, and identify <strong>Hot Files</strong> that change most often.
                                                     </p>
                                                 </div>
                                             </div>

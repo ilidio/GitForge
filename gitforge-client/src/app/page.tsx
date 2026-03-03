@@ -483,7 +483,7 @@ export default function Home() {
           if (!tokenLine || !remoteLine) return;
           
           const token = tokenLine.split('=')[1];
-          let cleanUrl = remoteLine.split('=')[1].replace('.git', '');
+          const cleanUrl = remoteLine.split('=')[1].replace('.git', '');
           const parts = cleanUrl.split(/[/:]/);
           const repo = parts.pop();
           const owner = parts.pop();
@@ -740,9 +740,9 @@ function isImage(path: string) {
 
   const handleAICommit = async () => {
     // AI Configuration
-    let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
-    let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
-    let model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
+    const provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
+    const model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
 
       if (!apiKey) {
           alert('Please configure your AI API Key in Settings or .env.local file.');
@@ -778,9 +778,9 @@ function isImage(path: string) {
 
   const handleReviewChanges = async () => {
     // AI Configuration
-    let apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
-    let provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
-    let model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY || localStorage.getItem('ai_api_key');
+    const provider = process.env.NEXT_PUBLIC_GEMINI_API_KEY ? 'gemini' : (localStorage.getItem('ai_provider') || 'openai');
+    const model = localStorage.getItem('ai_model') || (provider === 'gemini' ? process.env.NEXT_PUBLIC_GEMINI_MODEL : null) || (provider === 'gemini' ? 'gemini-3-flash-preview' : 'gpt-3.5-turbo');
 
       if (!apiKey) {
           alert('Please configure your AI API Key in Settings or .env.local file.');
