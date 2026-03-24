@@ -25,7 +25,10 @@ function createMenu() {
         ...(isMac ? [{
             label: 'GitForge',
             submenu: [
-                { role: 'about' },
+                { 
+                    label: 'About GitForge', 
+                    click: () => mainWindow?.webContents.send('menu:open-about') 
+                },
                 { type: 'separator' },
                 { 
                     label: 'Preferences...', 
@@ -104,6 +107,13 @@ function createMenu() {
         {
             role: 'help',
             submenu: [
+                {
+                    label: 'About GitForge',
+                    click: () => {
+                        mainWindow?.webContents.send('menu:open-about');
+                    }
+                },
+                { type: 'separator' },
                 {
                     label: 'Learn More',
                     click: async () => {

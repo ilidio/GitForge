@@ -37,6 +37,7 @@ import GlobalGrepDialog from '@/components/GlobalGrepDialog';
 import RepoInsightsDialog from '@/components/RepoInsightsDialog';
 import SubmoduleSection from '@/components/SubmoduleSection';
 import HelpDialog from '@/components/HelpDialog';
+import AboutDialog from '@/components/AboutDialog';
 import CloneDialog from '@/components/CloneDialog';
 import StashDialog from '@/components/StashDialog';
 import DailyBriefDialog from '@/components/DailyBriefDialog';
@@ -243,6 +244,7 @@ export default function Home() {
 
   // Help State
   const [isHelpOpen, setIsHelpOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Clone State
   const [isCloneOpen, setIsCloneOpen] = useState(false);
@@ -389,6 +391,7 @@ export default function Home() {
       if (typeof window !== 'undefined' && (window as any).require) {
           const { ipcRenderer } = (window as any).require('electron');
           ipcRenderer.on('menu:open-settings', () => setIsSettingsOpen(true));
+          ipcRenderer.on('menu:open-about', () => setIsAboutOpen(true));
           ipcRenderer.on('menu:open-repo', (_: any, path: string) => {
               setRepoPath(path);
               loadRepo(50, path);
@@ -2394,6 +2397,11 @@ function isImage(path: string) {
         onOpenChange={setIsHelpOpen} 
       />
 
+      <AboutDialog
+        open={isAboutOpen}
+        onOpenChange={setIsAboutOpen}
+      />
+
       <StashDialog 
         open={isStashDialogOpen} 
         onOpenChange={setIsStashDialogOpen} 
@@ -2526,7 +2534,12 @@ function isImage(path: string) {
                       <span>{status.files.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified").length} unstaged</span>
                   </>
               )}
-              <span className="opacity-70">GitForge v0.1.0</span>
+              <span 
+                className="opacity-70 hover:opacity-100 cursor-pointer transition-opacity" 
+                onClick={() => setIsAboutOpen(true)}
+              >
+                GitForge v0.1.0
+              </span>
           </div>
       </div>
       <GlobalLoader 
