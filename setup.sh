@@ -16,7 +16,7 @@ if ! command -v git &> /dev/null; then
 fi
 
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js (v18+)."
+    echo "❌ Node.js is not installed. Please install Node.js (v24+)."
     exit 1
 fi
 

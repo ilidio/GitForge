@@ -15,11 +15,11 @@ jobs:
         working-directory: gitforge-client
 
     steps:
-    - uses: actions/checkout@v4
-    - name: Use Node.js 20
-      uses: actions/setup-node@v4
+    - uses: actions/checkout@v6
+    - name: Use Node.js 24
+      uses: actions/setup-node@v6
       with:
-        node-version: 20
+        node-version: 24
         cache: 'npm'
         cache-dependency-path: gitforge-client/package-lock.json
     - run: npm install --legacy-peer-deps
