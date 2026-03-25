@@ -13,6 +13,9 @@ jobs:
     name: Build and Package (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
 
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     strategy:
       matrix:
         include:
@@ -89,7 +92,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: gitforge-${{ matrix.target }}-${{ matrix.arch }}
           path: gitforge-client/dist/*
