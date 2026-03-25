@@ -109,7 +109,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "jsdom": "^29.0.1",
-    "lucide-react": "^1.6.0",
+    "lucide-react": "^0.562.0",
     "monaco-editor": "^0.55.1",
     "next": "16.2.1",
     "prismjs": "^1.30.0",
