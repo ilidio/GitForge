@@ -262,7 +262,7 @@ app.whenReady().then(() => {
       let modified = '';
       try {
           modified = await runGit(`git show ${sha}:"${filePath}"`, repoPath);
-      } catch (e) {
+      } catch {
           // Might be a deleted file
       }
       
@@ -288,7 +288,7 @@ app.whenReady().then(() => {
       for (const commit of commits) {
           try {
               commit.diff = await runGit(`git show --stat ${commit.id}`, repoPath);
-          } catch (e) {
+          } catch {
               commit.diff = "";
           }
       }
@@ -591,8 +591,8 @@ app.whenReady().then(() => {
                   contentA = fs.readFileSync(fullPathA, 'utf8');
               }
           }
-      } catch (e) {
-          console.error("Failed to read file A", e);
+      } catch {
+          console.error("Failed to read file A");
       }
 
       try {
@@ -604,8 +604,8 @@ app.whenReady().then(() => {
                   contentB = fs.readFileSync(fullPathB, 'utf8');
               }
           }
-      } catch (e) {
-          console.error("Failed to read file B", e);
+      } catch {
+          console.error("Failed to read file B");
       }
 
       // Generate patch using git diff --no-index
@@ -690,13 +690,11 @@ app.whenReady().then(() => {
   });
 
   // Simple terminal shell spawn
-  ipcMain.on('terminal:spawn', (event, { repoPath, cols, rows }) => {
+  ipcMain.on('terminal:spawn', (event, { repoPath }) => {
       const shell = process.platform === 'win32' ? 'powershell.exe' : 'bash';
       const pty = spawn(shell, [], { 
           cwd: repoPath,
-          env: process.env,
-          cols,
-          rows
+          env: process.env
       });
 
       pty.stdout.on('data', (data) => {
@@ -713,7 +711,7 @@ app.whenReady().then(() => {
           } catch {}
       });
       
-      ipcMain.on('terminal:resize', (_, { cols, rows }) => {
+      ipcMain.on('terminal:resize', () => {
           // simple spawn doesn't support resize strictly like pty, but that's fine for basic use
       });
 
@@ -737,7 +735,7 @@ app.whenReady().then(() => {
           const data = await response.json();
           // data.state can be 'pending', 'success', 'error', 'failure'
           return data.state;
-      } catch (e) {
+      } catch {
           return null;
       }
   });
@@ -899,13 +897,13 @@ app.whenReady().then(() => {
       // Try to checkout HEAD (discards staged and unstaged changes for tracked files)
       try {
           await runGit(`git checkout HEAD -- "${filePath}"`, repoPath);
-      } catch (e) {
+      } catch {
           // Ignore error (e.g. if file is untracked)
       }
       // Try to clean (removes untracked files)
       try {
           await runGit(`git clean -f "${filePath}"`, repoPath);
-      } catch (e) {
+      } catch {
           // Ignore error
       }
   });

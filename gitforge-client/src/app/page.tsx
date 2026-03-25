@@ -7,7 +7,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { getFileDiff, commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, deleteBranch, fetchRepo, pullRepo, pushRepo, getTextGraph, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase, abortRebase } from '@/lib/api';
+import { commitChanges, getCommitChanges, getCommitFileDiff, merge, cherryPick, createBranch, fetchRepo, pullRepo, pushRepo, getStashes, stashChanges, popStash, dropStash, undoLastCommit, startInteractiveRebase, continueRebase } from '@/lib/api';
 import { checkout, getTags, createTag, deleteTag, appendFile, getBlame, getBlamePorcelain, getReflog, reset, openDifftool, restoreAll, getCustomGraph, initRepo, getDiffFile, dropStashElectron, gitRm, bisectStart, bisectReset, bisectGood, bisectBad, revertCommit, gitArchive, gitGc, gitMv, generateAICommitMessage, reviewChanges, getLog, stashPush, getDiffDetails, fetchCommitStatus, getConfig, getFileContentBinary, stageFile, unstageFile, getRepoStatus, getBranches, discardPath, discardUnstaged, getCommitChangesElectron, getCommitFileDiffElectron } from '@/lib/electron';
 import DiffView from '@/components/DiffView';
 import InternalDiffView from '@/components/InternalDiffView';
