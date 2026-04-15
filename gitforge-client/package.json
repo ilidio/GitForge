@@ -1,7 +1,7 @@
 {
   "name": "gitforge-client",
   "productName": "GitForge",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "A modern, AI-powered Git client built with web technologies.",
   "author": "Ilidio Martins <ilidio.martins@gmail.com>",
   "homepage": "https://github.com/ilidio/GitForge",
@@ -28,7 +28,8 @@
       {
         "provider": "github",
         "owner": "ilidio",
-        "repo": "GitForge"
+        "repo": "GitForge",
+        "releaseType": "release"
       }
     ],
     "directories": {
