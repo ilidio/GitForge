@@ -3,15 +3,19 @@ name: Build and Package GitForge
 on:
   push:
     branches: [ main ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main ]
   release:
     types: [ created ]
+  workflow_dispatch:
 
 jobs:
   build:
     name: Build and Package (${{ matrix.os }}, ${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
 
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -38,17 +42,17 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: 'npm'
           cache-dependency-path: gitforge-client/package-lock.json
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
@@ -83,16 +87,16 @@ jobs:
         working-directory: gitforge-client
         shell: bash
         run: |
-          PUBLISH_FLAG=""
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            PUBLISH_FLAG="--publish always"
+          PUBLISH_FLAG="never"
+          if [[ "${{ github.event_name }}" == "release" || "${{ github.ref }}" == refs/tags/* ]]; then
+            PUBLISH_FLAG="always"
           fi
-          npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} $PUBLISH_FLAG
+          npx electron-builder --${{ matrix.target }} --${{ matrix.arch }} --publish $PUBLISH_FLAG
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: gitforge-${{ matrix.target }}-${{ matrix.arch }}
           path: gitforge-client/dist/*
