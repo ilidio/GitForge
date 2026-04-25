@@ -1,4 +1,5 @@
 # GitForge
+[![GitHub](https://img.shields.io/badge/GitHub-GitForge-blue?logo=github)](https://github.com/ilidio/GitForge)
 
 A modern, fast, and intuitive git management tool.
 
