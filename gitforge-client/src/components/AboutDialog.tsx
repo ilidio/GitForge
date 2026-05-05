@@ -18,7 +18,6 @@ export default function AboutDialog({ open, onOpenChange, theme = 'light' }: Abo
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={`sm:max-w-[420px] overflow-hidden p-0 border-none shadow-2xl bg-background/95 backdrop-blur-xl ${theme === 'dark' ? 'dark' : ''}`}>
-                <div className={`w-full h-full text-foreground ${theme === 'dark' ? 'dark' : ''}`}>
                 <div className="sr-only">
                     <DialogHeader>
                         <DialogTitle>About GitForge</DialogTitle>
@@ -111,7 +110,6 @@ export default function AboutDialog({ open, onOpenChange, theme = 'light' }: Abo
                         </div>
                     </div>
                 </div>
-            </div>
             </DialogContent>
         </Dialog>
     );

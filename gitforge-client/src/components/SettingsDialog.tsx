@@ -161,7 +161,6 @@ export default function SettingsDialog({ open, onOpenChange, repoPath, theme = '
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={`max-w-2xl ${theme === 'dark' ? 'dark' : ''}`}>
-                <div className={`w-full h-full text-foreground ${theme === 'dark' ? 'dark' : ''}`}>
                 <DialogHeader>
                     <DialogTitle>Repository Settings</DialogTitle>
                     <DialogDescription>Configure user identity, remotes, and AI assistant.</DialogDescription>
@@ -325,7 +324,6 @@ export default function SettingsDialog({ open, onOpenChange, repoPath, theme = '
                         </div>
                     </Tabs>
                 )}
-                </div>
             </DialogContent>
         </Dialog>
     );

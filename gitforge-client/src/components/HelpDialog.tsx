@@ -33,7 +33,6 @@ export default function HelpDialog({ open, onOpenChange, theme = 'light' }: Help
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={`max-w-[95vw] w-full h-[92vh] flex flex-row p-0 overflow-hidden bg-background border-none shadow-2xl ${theme === 'dark' ? 'dark' : ''}`}>
-                <div className={`flex flex-row w-full h-full text-foreground ${theme === 'dark' ? 'dark' : ''}`}>
                 <div className="sr-only">
                     <DialogTitle>GitForge Documentation</DialogTitle>
                     <DialogDescription>User manual and feature documentation for GitForge.</DialogDescription>
@@ -348,7 +347,6 @@ export default function HelpDialog({ open, onOpenChange, theme = 'light' }: Help
                         </ScrollArea>
                     </div>
                 </Tabs>
-                </div>
             </DialogContent>
         </Dialog>
     );
