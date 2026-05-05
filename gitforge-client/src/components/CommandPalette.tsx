@@ -11,6 +11,7 @@ interface CommandPaletteProps {
     hasHistory: boolean;
     hasRemotes: boolean;
     hasStagedChanges: boolean;
+    theme?: 'light' | 'dark';
     actions: {
         fetch: () => void;
         pull: () => void;
@@ -28,7 +29,7 @@ interface CommandPaletteProps {
             openCompareFiles: () => void;
         };}
 
-export default function CommandPalette({ open, onOpenChange, actions, repoPath, hasHistory, hasRemotes, hasStagedChanges }: CommandPaletteProps) {
+export default function CommandPalette({ open, onOpenChange, actions, repoPath, hasHistory, hasRemotes, hasStagedChanges, theme = 'light' }: CommandPaletteProps) {
     
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -51,9 +52,10 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath, 
         open={open} 
         onOpenChange={onOpenChange}
         label="Global Command Menu"
-        className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[640px] max-w-[90vw] bg-popover text-popover-foreground border shadow-2xl rounded-xl overflow-hidden z-[100]"
+        className={`fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[640px] max-w-[90vw] bg-popover text-popover-foreground border shadow-2xl rounded-xl overflow-hidden z-[100] ${theme === 'dark' ? 'dark' : ''}`}
         overlayClassName="fixed inset-0 bg-background/80 backdrop-blur-sm z-[99]"
     >
+      <div className={`w-full h-full text-foreground ${theme === 'dark' ? 'dark' : ''}`}>
       <div className="sr-only">
         <DialogTitle>Command Palette</DialogTitle>
         <DialogDescription>Search for commands and repository actions</DialogDescription>
@@ -160,7 +162,9 @@ export default function CommandPalette({ open, onOpenChange, actions, repoPath, 
                 <span>Optimize Repository (GC)</span>
             </Command.Item>
         </Command.Group>
-      </Command.List>
-    </Command.Dialog>
-  );
-}
+        </Command.List>
+        </div>
+        </Command.Dialog>
+        );
+        }
+

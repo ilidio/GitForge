@@ -12,9 +12,10 @@ interface SettingsDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     repoPath: string;
+    theme?: 'light' | 'dark';
 }
 
-export default function SettingsDialog({ open, onOpenChange, repoPath }: SettingsDialogProps) {
+export default function SettingsDialog({ open, onOpenChange, repoPath, theme = 'light' }: SettingsDialogProps) {
     const [userName, setUserName] = useState('');
     const [userEmail, setUserEmail] = useState('');
     const [githubToken, setGithubToken] = useState('');
@@ -159,7 +160,8 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className={`max-w-2xl ${theme === 'dark' ? 'dark' : ''}`}>
+                <div className={`w-full h-full text-foreground ${theme === 'dark' ? 'dark' : ''}`}>
                 <DialogHeader>
                     <DialogTitle>Repository Settings</DialogTitle>
                     <DialogDescription>Configure user identity, remotes, and AI assistant.</DialogDescription>
@@ -323,6 +325,7 @@ export default function SettingsDialog({ open, onOpenChange, repoPath }: Setting
                         </div>
                     </Tabs>
                 )}
+                </div>
             </DialogContent>
         </Dialog>
     );

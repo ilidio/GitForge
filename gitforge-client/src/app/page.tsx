@@ -2392,16 +2392,17 @@ function isImage(path: string) {
         repoPath={repoPath}
       />
 
-      <HelpDialog  
+      <HelpDialog 
         open={isHelpOpen} 
-        onOpenChange={setIsHelpOpen} 
+        onOpenChange={setIsHelpOpen}
+        theme={theme}
       />
 
-      <AboutDialog
-        open={isAboutOpen}
+      <AboutDialog 
+        open={isAboutOpen} 
         onOpenChange={setIsAboutOpen}
+        theme={theme}
       />
-
       <StashDialog 
         open={isStashDialogOpen} 
         onOpenChange={setIsStashDialogOpen} 
@@ -2479,6 +2480,7 @@ function isImage(path: string) {
         hasHistory={history.length > 0}
         hasRemotes={branches.some(b => b.isRemote)}
         hasStagedChanges={!!status?.files?.some((f: any) => f.status.includes("Index") || f.status === "Staged")}
+        theme={theme}
         actions={{
             fetch: handleFetch,
             pull: handlePull,
@@ -2503,6 +2505,7 @@ function isImage(path: string) {
         open={isSettingsOpen}
         onOpenChange={setIsSettingsOpen}
         repoPath={repoPath}
+        theme={theme}
       />
       
       {/* Status Bar */}
