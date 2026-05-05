@@ -1795,7 +1795,7 @@ function isImage(path: string) {
                 {viewMode === 'workdir' ? (
                     <>
                         {/* Staged Changes */}
-                        <div className="flex-1 flex flex-col min-h-0 border-b">
+                        <div className="flex-1 flex flex-col min-h-0 border-b bg-background">
                             <div className="p-2 pb-0 flex-shrink-0 bg-background z-10">
                                 <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                                     <span>Staged Changes ({status?.files?.filter((f: any) => f.status.includes("Staged")).length || 0})</span>
@@ -1840,7 +1840,7 @@ function isImage(path: string) {
                                     </div>
                                 </div>
                             </div>
-                            <ScrollArea className="flex-1">
+                            <ScrollArea className="flex-1 min-h-0">
                                 <div className="p-2 pt-0">
                                     <FileTree 
                                         files={status?.files?.filter((f: any) => f.status.includes("Staged") || f.status.includes("Index")) || []}
@@ -1873,7 +1873,7 @@ function isImage(path: string) {
                         </div>
 
                         {/* Unstaged Changes */}
-                        <div className="flex-1 flex flex-col min-h-0">
+                        <div className="flex-1 flex flex-col min-h-0 bg-background">
                             <div className="p-2 pb-0 flex-shrink-0 bg-background z-10">
                                 <div className="px-2 py-1 text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                                     <span>Unstaged Changes ({status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified").length || 0})</span>
@@ -1918,7 +1918,7 @@ function isImage(path: string) {
                                     </div>
                                 </div>
                             </div>
-                            <ScrollArea className="flex-1">
+                            <ScrollArea className="flex-1 min-h-0">
                                 <div className="p-2 pt-0">
                                     <FileTree 
                                         files={status?.files?.filter((f: any) => f.status.includes("Unstaged") || f.status.includes("Workdir") || f.status.includes("Untracked") || f.status === "Modified") || []}
@@ -1951,7 +1951,7 @@ function isImage(path: string) {
                         </div>
                     </>
                 ) : (
-                    <ScrollArea className="flex-1">
+                    <ScrollArea className="flex-1 min-h-0 bg-background">
                         <div className="p-2">
                             <FileTree 
                                 files={commitFiles}
