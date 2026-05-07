@@ -101,7 +101,7 @@ export default function AboutDialog({ open, onOpenChange, theme = 'light' }: Abo
                         
                         <div className="flex flex-col items-center gap-3">
                             <div className="flex items-center gap-2 opacity-80 hover:opacity-100 transition-opacity cursor-default">
-                                <img src="/m0k4_tools.png" alt="m0k4 tools" className="h-4 grayscale invert brightness-0 dark:invert-0 dark:brightness-100" />
+                                <img src="/m0k4_tools.png" alt="m0k4 tools" className="h-4 grayscale invert dark:invert-0 dark:brightness-100" />
                                 <span className="text-[10px] font-bold tracking-tight text-muted-foreground">m0k4 tools project</span>
                             </div>
                             <div className="text-[9px] text-muted-foreground/40 font-bold uppercase tracking-widest">
