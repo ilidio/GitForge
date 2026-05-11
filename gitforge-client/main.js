@@ -242,26 +242,31 @@ app.whenReady().then(() => {
       return output.split('\n').filter(Boolean).map(line => {
           const parts = line.split('\t');
           if (parts.length < 2) return null;
-          return { path: parts[1], status: parts[0] };
+          let path = parts[1];
+          // Unquote if git quoted the path
+          if (path.startsWith('"') && path.endsWith('"')) {
+              path = path.substring(1, path.length - 1).replace(/\\"/g, '"');
+          }
+          return { path, status: parts[0] };
       }).filter(Boolean);
   });
 
   ipcMain.handle('git:getCommitFileDiff', async (_, { repoPath, sha, filePath }) => {
-      // Get the patch
-      const patch = await runGit(`git show ${sha} -- "${filePath}"`, repoPath);
+      // Get the patch - do NOT trim
+      const patch = await runGit(`git show ${sha} -- "${filePath}"`, repoPath, { trim: false });
       
-      // Get original content (from parent)
+      // Get original content (from parent) - do NOT trim
       let original = '';
       try {
-          original = await runGit(`git show ${sha}^:"${filePath}"`, repoPath);
+          original = await runGit(`git show ${sha}^:"${filePath}"`, repoPath, { trim: false });
       } catch {
           // Might be a new file
       }
       
-      // Get modified content (from this commit)
+      // Get modified content (from this commit) - do NOT trim
       let modified = '';
       try {
-          modified = await runGit(`git show ${sha}:"${filePath}"`, repoPath);
+          modified = await runGit(`git show ${sha}:"${filePath}"`, repoPath, { trim: false });
       } catch {
           // Might be a deleted file
       }
@@ -287,7 +292,7 @@ app.whenReady().then(() => {
       // For each commit, get a short diff summary
       for (const commit of commits) {
           try {
-              commit.diff = await runGit(`git show --stat ${commit.id}`, repoPath);
+              commit.diff = await runGit(`git show --stat ${commit.id}`, repoPath, { trim: false });
           } catch {
               commit.diff = "";
           }
@@ -545,7 +550,14 @@ app.whenReady().then(() => {
 
   ipcMain.handle('git:diffDetails', async (_, { repoPath, filePath, staged }) => {
       const patchCmd = staged ? `git diff --staged -- "${filePath}"` : `git diff -- "${filePath}"`;
-      const patch = await runGit(patchCmd, repoPath).catch(() => '');
+      
+      // We use a custom exec here because git diff returns 1 if differences are found
+      const patch = await new Promise((resolve) => {
+          exec(patchCmd, { cwd: repoPath, maxBuffer: 1024 * 1024 * 10 }, (err, stdout, stderr) => {
+              // exit code 1 is fine for diff
+              resolve(stdout || stderr || '');
+          });
+      });
       
       let original = '';
       let modified = '';
@@ -553,16 +565,16 @@ app.whenReady().then(() => {
       if (staged) {
           // Staged: HEAD vs Index
           try {
-              original = await runGit(`git show HEAD:"${filePath}"`, repoPath);
+              original = await runGit(`git show HEAD:"${filePath}"`, repoPath, { trim: false });
           } catch {}
           try {
               // Quote the entire refspec for index lookup
-              modified = await runGit(`git show ":${filePath}"`, repoPath);
+              modified = await runGit(`git show ":${filePath}"`, repoPath, { trim: false });
           } catch {}
       } else {
           // Unstaged: Index vs Workdir
           try {
-              original = await runGit(`git show ":${filePath}"`, repoPath);
+              original = await runGit(`git show ":${filePath}"`, repoPath, { trim: false });
           } catch {
               // If not in index (untracked), original is empty
           }
@@ -584,7 +596,7 @@ app.whenReady().then(() => {
 
       try {
           if (refA) {
-              contentA = await runGit(`git show "${refA}:${pathA}"`, repoPath);
+              contentA = await runGit(`git show "${refA}:${pathA}"`, repoPath, { trim: false });
           } else {
               const fullPathA = path.normalize(path.join(repoPath, pathA));
               if (fs.existsSync(fullPathA)) {
@@ -597,7 +609,7 @@ app.whenReady().then(() => {
 
       try {
           if (refB) {
-              contentB = await runGit(`git show "${refB}:${pathB}"`, repoPath);
+              contentB = await runGit(`git show "${refB}:${pathB}"`, repoPath, { trim: false });
           } else {
               const fullPathB = path.normalize(path.join(repoPath, pathB));
               if (fs.existsSync(fullPathB)) {
@@ -617,47 +629,19 @@ app.whenReady().then(() => {
       fs.writeFileSync(fileATmp, contentA);
       fs.writeFileSync(fileBTmp, contentB);
 
-      let patch = '';
-      try {
-          // git diff --no-index returns 1 if differences were found
-          patch = await runGit(`git diff --no-index --color=never "${fileATmp}" "${fileBTmp}"`, repoPath);
-      } catch (e) {
-          if (e.message && e.message.includes('diff')) {
-              // This is expected if there are diffs
-              patch = e.message; 
-              // Usually runGit might reject if exit code is 1. 
-              // Wait, runGit uses exec which rejects on exit code != 0.
-              // We need to handle that.
-          }
-          // If it's a real error, it might be caught here.
-          // git diff --no-index often outputs to stdout even with exit 1.
-          // Let's check how runGit is implemented.
-      }
-
-      // Cleanup
-      try {
-          fs.unlinkSync(fileATmp);
-          fs.unlinkSync(fileBTmp);
-      } catch {}
-
-      // Re-run the diff more carefully if first attempt failed
-      if (!patch || !patch.startsWith('diff')) {
-          return new Promise((resolve) => {
-              fs.writeFileSync(fileATmp, contentA);
-              fs.writeFileSync(fileBTmp, contentB);
-              exec(`git diff --no-index --color=never "${fileATmp}" "${fileBTmp}"`, { cwd: repoPath }, (err, stdout, stderr) => {
-                  fs.unlinkSync(fileATmp);
-                  fs.unlinkSync(fileBTmp);
-                  resolve({
-                      patch: stdout || stderr || '',
-                      original: contentA,
-                      modified: contentB
-                  });
+      return new Promise((resolve) => {
+          exec(`git diff --no-index --color=never "${fileATmp}" "${fileBTmp}"`, { cwd: repoPath }, (err, stdout, stderr) => {
+              try {
+                fs.unlinkSync(fileATmp);
+                fs.unlinkSync(fileBTmp);
+              } catch {}
+              resolve({
+                  patch: stdout || stderr || '',
+                  original: contentA,
+                  modified: contentB
               });
           });
-      }
-
-      return { patch, original: contentA, modified: contentB };
+      });
   });
 
   ipcMain.handle('git:apply', async (_, { repoPath, patch, reverse = false, cached = false }) => {

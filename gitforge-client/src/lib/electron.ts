@@ -352,8 +352,13 @@ export async function getRepoStatus(repoPath: string) {
     // ?? untracked
     const files = output.split('\n').filter(Boolean).map((line: string) => {
         const statusChar = line.substring(0, 2);
-        const path = line.substring(3);
+        let path = line.substring(3);
         
+        // Unquote if git quoted the path
+        if (path.startsWith('"') && path.endsWith('"')) {
+            path = path.substring(1, path.length - 1).replace(/\\"/g, '"');
+        }
+
         let fullStatus = "";
         
         // Handle conflicts (U in any position)

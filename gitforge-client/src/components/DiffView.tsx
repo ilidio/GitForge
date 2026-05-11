@@ -12,8 +12,8 @@ interface DiffViewProps {
 }
 
 export default function DiffView({ 
-    original, 
-    modified, 
+    original = '', 
+    modified = '', 
     language = 'plaintext', 
     theme = 'vs-light',
     renderSideBySide = true

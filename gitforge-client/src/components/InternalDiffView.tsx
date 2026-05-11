@@ -35,8 +35,8 @@ const highlight = (code: string, lang: string) => {
     return Prism.highlight(code || '', prismLang, lang || 'plaintext');
 };
 
-export default function InternalDiffView({ original, modified, language = 'plaintext', renderSideBySide = true }: InternalDiffViewProps) {
-    const changes = useMemo(() => computeDiff(original, modified), [original, modified]);
+export default function InternalDiffView({ original = '', modified = '', language = 'plaintext', renderSideBySide = true }: InternalDiffViewProps) {
+    const changes = useMemo(() => computeDiff(original || '', modified || ''), [original, modified]);
     const alignedRows = useMemo(() => alignDiffChanges(changes), [changes]);
     
     const leftRef = useRef<HTMLDivElement>(null);
