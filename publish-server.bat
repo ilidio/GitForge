@@ -4,7 +4,7 @@ SETLOCAL
 echo Building GitForge Server for Windows (x64)...
 
 set "SERVER_PROJECT=.\gitforge-server\GitForge.Server.csproj"
-set "OUTPUT_DIR=.\gitforge-client\server-dist"
+set "OUTPUT_DIR=.\gitforge-client\server-dist\win\x64"
 
 if exist "%OUTPUT_DIR%" rd /s /q "%OUTPUT_DIR%"
 

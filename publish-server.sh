@@ -22,7 +22,7 @@ case "$TARGET_ARCH" in
 esac
 
 DOTNET_RID="${DOTNET_OS}-${DOTNET_ARCH}"
-OUTPUT_DIR="./gitforge-client/server-dist/$TARGET_OS"
+OUTPUT_DIR="./gitforge-client/server-dist/$TARGET_OS/$TARGET_ARCH"
 
 echo "Publishing GitForge Server for $DOTNET_RID..."
 echo "Output directory: $OUTPUT_DIR"

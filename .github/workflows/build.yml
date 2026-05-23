@@ -24,10 +24,22 @@ jobs:
             arch: x64
             target: linux
             dotnet_rid: linux-x64
+          - os: ubuntu-latest
+            arch: arm64
+            target: linux
+            dotnet_rid: linux-arm64
           - os: windows-latest
             arch: x64
             target: win
             dotnet_rid: win-x64
+          - os: windows-latest
+            arch: arm64
+            target: win
+            dotnet_rid: win-arm64
+          - os: windows-latest
+            arch: ia32
+            target: win
+            dotnet_rid: win-x86
           - os: macos-latest
             arch: x64
             target: mac
@@ -67,14 +79,14 @@ jobs:
       - name: Build .NET Server Sidecar
         shell: bash
         run: |
-          mkdir -p gitforge-client/server-dist/${{ matrix.target }}
+          mkdir -p gitforge-client/server-dist/${{ matrix.target }}/${{ matrix.arch }}
           dotnet publish gitforge-server/GitForge.Server.csproj \
             -c Release \
             -r ${{ matrix.dotnet_rid }} \
             --self-contained true \
             -p:PublishSingleFile=true \
             -p:DebugType=embedded \
-            -o gitforge-client/server-dist/${{ matrix.target }}
+            -o gitforge-client/server-dist/${{ matrix.target }}/${{ matrix.arch }}
 
       - name: Build Next.js Frontend
         working-directory: gitforge-client

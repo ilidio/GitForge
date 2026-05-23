@@ -14,7 +14,7 @@ $DotnetArch = $TargetArch
 if ($TargetArch -eq "ia32") { $DotnetArch = "x86" }
 
 $DotnetRID = "$DotnetOS-$DotnetArch"
-$OutputDir = ".\gitforge-client\server-dist\$TargetOS"
+$OutputDir = ".\gitforge-client\server-dist\$TargetOS\$TargetArch"
 
 Write-Host "Publishing GitForge Server for $DotnetRID..." -ForegroundColor Cyan
 Write-Host "Output directory: $OutputDir" -ForegroundColor Gray

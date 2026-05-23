@@ -135,13 +135,13 @@ echo "Cleaning up previous build artifacts..."
 rm -rf gitforge-client/dist
 rm -rf gitforge-client/.next/cache
 rm -rf gitforge-client/out
-rm -rf gitforge-client/server-dist
+rm -rf "gitforge-client/server-dist/$TARGET_OS/$TARGET_ARCH"
 rm -rf gitforge-client/node_modules/.cache
 rm -rf dist
 
 # Build the .NET server sidecar
 echo "Building .NET server sidecar for $DOTNET_RID..."
-SERVER_OUTPUT_DIR="gitforge-client/server-dist/$TARGET_OS"
+SERVER_OUTPUT_DIR="gitforge-client/server-dist/$TARGET_OS/$TARGET_ARCH"
 mkdir -p "$SERVER_OUTPUT_DIR"
 
 dotnet publish gitforge-server/GitForge.Server.csproj \

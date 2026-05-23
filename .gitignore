@@ -66,3 +66,4 @@ _ReSharper*/
 # GitForge specific logs
 err.log
 out.log
+.aider*
