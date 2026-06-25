@@ -499,7 +499,7 @@ export default function Home() {
           
           await Promise.all(recentCommits.map(async (c: any) => {
               const status = await fetchCommitStatus(owner, repo, c.id, token);
-              if (status) newStatuses[c.id] = status;
+              if (status) newStatuses[c.id] = status as string;
           }));
           
           setCommitStatuses(prev => ({ ...prev, ...newStatuses }));
@@ -582,7 +582,7 @@ export default function Home() {
       setDiffData(null);
       try {
           const files = await getCommitChangesElectron(repoPath, commit.id);
-          setCommitFiles(files);
+          setCommitFiles(files as unknown as string[]);
       } catch (err) {
           console.error("Failed to load commit changes", err);
           // Fallback to API if Electron fails (though unlikely)
@@ -685,7 +685,7 @@ function isImage(path: string) {
             diff = {
                 originalContent: details.original,
                 modifiedContent: details.modified,
-                patch: details.patch,
+                patch: (details as { original: string; modified: string; patch?: string }).patch,
                 isStaged
             };
         } else {

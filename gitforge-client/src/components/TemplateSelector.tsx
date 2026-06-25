@@ -32,6 +32,9 @@ const DEFAULT_TEMPLATES: Template[] = [
 ];
 
 function loadInitialTemplates(): Template[] {
+    if (typeof window === 'undefined') {
+        return DEFAULT_TEMPLATES;
+    }
     const saved = localStorage.getItem('commitTemplates');
     if (saved) {
         try { return JSON.parse(saved) as Template[]; } catch { /* fall through */ }

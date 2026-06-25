@@ -35,6 +35,9 @@ const DEFAULT_QUERIES: SavedQuery[] = [
 ];
 
 function loadInitialQueries(): SavedQuery[] {
+    if (typeof window === 'undefined') {
+        return DEFAULT_QUERIES;
+    }
     const saved = localStorage.getItem('gitforge_saved_queries');
     if (saved) {
         try {
@@ -44,7 +47,11 @@ function loadInitialQueries(): SavedQuery[] {
         }
     }
     const defaults = DEFAULT_QUERIES;
-    localStorage.setItem('gitforge_saved_queries', JSON.stringify(defaults));
+    try {
+        localStorage.setItem('gitforge_saved_queries', JSON.stringify(defaults));
+    } catch (e) {
+        console.error("Failed to save default queries", e);
+    }
     return defaults;
 }
 

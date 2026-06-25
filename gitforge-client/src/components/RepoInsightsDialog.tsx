@@ -15,6 +15,9 @@ interface RepoInsightsDialogProps {
 interface RepoStats {
     totalCommits?: number;
     contributors?: { name: string; commits: number }[];
+    authors: string;
+    hotFiles: string;
+    activity: string;
     [key: string]: unknown;
 }
 
