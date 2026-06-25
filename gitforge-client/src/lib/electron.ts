@@ -1,11 +1,22 @@
 
 // Wrapper for Electron IPC calls
 
-let ipcRenderer: any = null;
+type IpcRenderer = {
+    invoke: (channel: string, ...args: unknown[]) => Promise<unknown>;
+    send: (channel: string, ...args: unknown[]) => void;
+    on: (channel: string, listener: (event: unknown, ...args: unknown[]) => void) => void;
+    removeAllListeners: (channel: string) => void;
+};
 
-if (typeof window !== 'undefined' && (window as any).require) {
+type ElectronWindow = Window & {
+    require?: (module: string) => { ipcRenderer: IpcRenderer };
+};
+
+let ipcRenderer: IpcRenderer | null = null;
+
+if (typeof window !== 'undefined' && (window as ElectronWindow).require) {
     try {
-        const electron = (window as any).require('electron');
+        const electron = (window as ElectronWindow).require!('electron');
         ipcRenderer = electron.ipcRenderer;
     } catch (e) {
         console.error("Could not load electron ipcRenderer", e);
@@ -52,7 +63,7 @@ export async function reviewChanges(diff: string, apiKey: string, endpoint?: str
     return ipcRenderer.invoke('ai:reviewChanges', { diff, apiKey, endpoint, model, context });
 }
 
-export async function generateDailyBrief(commits: any[], apiKey: string, endpoint?: string, model?: string, language?: string) {
+export async function generateDailyBrief(commits: unknown[], apiKey: string, endpoint?: string, model?: string, language?: string) {
     if (!ipcRenderer) throw new Error("Not in Electron environment");
     return ipcRenderer.invoke('ai:generateDailyBrief', { commits, apiKey, endpoint, model, language });
 }
@@ -96,7 +107,7 @@ export function spawnTerminal(repoPath: string, cols: number, rows: number, onDa
 
     ipcRenderer.send('terminal:spawn', { repoPath, cols, rows });
     
-    ipcRenderer.on('terminal:data', (_: any, data: string) => {
+    ipcRenderer.on('terminal:data', (_: unknown, data: string) => {
         onData(data);
     });
 
@@ -345,7 +356,7 @@ export async function getRepoStatus(repoPath: string) {
         getBranches(repoPath).catch(() => [])
     ]);
 
-    const head = branches.find((b: any) => b.isCurrentRepositoryHead)?.name || "Detached HEAD";
+    const head = branches.find((b: { isCurrentRepositoryHead: boolean; name: string }) => b.isCurrentRepositoryHead)?.name || "Detached HEAD";
 
     // Parse output
     // XY PATH

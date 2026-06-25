@@ -188,7 +188,13 @@ export async function startInteractiveRebase(repoPath: string, base: string) {
     return response.json();
 }
 
-export async function continueRebase(repoPath: string, instructions: any[]) {
+export interface RebaseInstruction {
+    action: string;
+    sha: string;
+    message?: string;
+}
+
+export async function continueRebase(repoPath: string, instructions: RebaseInstruction[]) {
     const response = await fetch(`${API_BASE_URL}/repository/rebase/continue`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

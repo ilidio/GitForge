@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, Plus, Trash, Play, Save, Hash, Calendar, User, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,30 +29,30 @@ interface QueryLibraryProps {
     onRunQuery: (query: SavedQuery) => void;
 }
 
+const DEFAULT_QUERIES: SavedQuery[] = [
+    { id: '1', name: 'Find TODOs', pattern: 'TODO', type: 'grep', createdAt: Date.now() },
+    { id: '2', name: 'Fixes & Bugs', pattern: 'fix|bug', type: 'grep', createdAt: Date.now() }
+];
+
+function loadInitialQueries(): SavedQuery[] {
+    const saved = localStorage.getItem('gitforge_saved_queries');
+    if (saved) {
+        try {
+            return JSON.parse(saved) as SavedQuery[];
+        } catch (e) {
+            console.error("Failed to parse saved queries", e);
+        }
+    }
+    const defaults = DEFAULT_QUERIES;
+    localStorage.setItem('gitforge_saved_queries', JSON.stringify(defaults));
+    return defaults;
+}
+
 export default function QueryLibrary({ repoPath, onRunQuery }: QueryLibraryProps) {
-    const [queries, setQueries] = useState<SavedQuery[]>([]);
+    const [queries, setQueries] = useState<SavedQuery[]>(loadInitialQueries);
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [newName, setNewName] = useState('');
     const [newPattern, setNewPattern] = useState('');
-
-    useEffect(() => {
-        const saved = localStorage.getItem('gitforge_saved_queries');
-        if (saved) {
-            try {
-                setQueries(JSON.parse(saved));
-            } catch (e) {
-                console.error("Failed to parse saved queries", e);
-            }
-        } else {
-            // Default examples
-            const defaults: SavedQuery[] = [
-                { id: '1', name: 'Find TODOs', pattern: 'TODO', type: 'grep', createdAt: Date.now() },
-                { id: '2', name: 'Fixes & Bugs', pattern: 'fix|bug', type: 'grep', createdAt: Date.now() }
-            ];
-            setQueries(defaults);
-            localStorage.setItem('gitforge_saved_queries', JSON.stringify(defaults));
-        }
-    }, []);
 
     const saveQueries = (newQueries: SavedQuery[]) => {
         setQueries(newQueries);

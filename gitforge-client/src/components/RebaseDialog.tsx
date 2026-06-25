@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
     Dialog,
     DialogContent,
@@ -16,17 +16,36 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+interface RebaseCommit {
+    id: string;
+    message: string;
+}
+
+interface RebaseInstruction {
+    id: string;
+    message: string;
+    action: RebaseAction;
+}
+
 interface RebaseDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    commits: any[];
-    onConfirm: (instructions: any[]) => void;
+    commits: RebaseCommit[];
+    onConfirm: (instructions: RebaseInstruction[]) => void;
     targetBranch: string;
 }
 
 type RebaseAction = 'pick' | 'reword' | 'edit' | 'squash' | 'fixup' | 'drop';
 
-function SortableItem({ inst, i, updateAction, moveUp, moveDown, isFirst, isLast }: any) {
+function SortableItem({ inst, i, updateAction, moveUp, moveDown, isFirst, isLast }: {
+    inst: RebaseInstruction;
+    i: number;
+    updateAction: (i: number, action: RebaseAction) => void;
+    moveUp: (i: number) => void;
+    moveDown: (i: number) => void;
+    isFirst: boolean;
+    isLast: boolean;
+}) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: inst.id });
     
     const style = {
@@ -80,17 +99,12 @@ function SortableItem({ inst, i, updateAction, moveUp, moveDown, isFirst, isLast
 }
 
 export default function RebaseDialog({ open, onOpenChange, commits, onConfirm, targetBranch }: RebaseDialogProps) {
-    const [instructions, setInstructions] = useState<any[]>([]);
-
-    useEffect(() => {
-        if (open && commits) {
-            setInstructions(commits.map(c => ({
-                id: c.id,
-                message: c.message,
-                action: 'pick' as RebaseAction
-            })));
-        }
-    }, [open, commits]);
+    // Initialise instructions from commits. Using key={`${open}-${commits.length}`} on
+    // the dialog wrapper (or here via useState with a derivation) avoids the need for
+    // a setState-in-effect pattern.
+    const [instructions, setInstructions] = useState<RebaseInstruction[]>(() =>
+        commits.map(c => ({ id: c.id, message: c.message, action: 'pick' as RebaseAction }))
+    );
 
     const sensors = useSensors(
         useSensor(PointerSensor),

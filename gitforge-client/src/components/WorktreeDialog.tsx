@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,21 +14,23 @@ interface WorktreeDialogProps {
     repoPath: string;
 }
 
+interface Worktree {
+    path: string;
+    head: string;
+    branch: string;
+}
+
+type ElectronWindow = Window & {
+    require?: (module: string) => { ipcRenderer: { invoke: (channel: string) => Promise<{ canceled: boolean; filePaths: string[] }> } };
+};
+
 export default function WorktreeDialog({ open, onOpenChange, repoPath }: WorktreeDialogProps) {
-    const [worktrees, setWorktrees] = useState<any[]>([]);
-    const [loading, setLoading] = useState(false);
+    const [worktrees, setWorktrees] = useState<Worktree[]>([]);
     const [newPath, setNewPath] = useState('');
     const [newBranch, setNewBranch] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-        if (open && repoPath) {
-            loadWorktrees();
-        }
-    }, [open, repoPath]);
-
-    const loadWorktrees = async () => {
-        setLoading(true);
+    const loadWorktrees = useCallback(async () => {
         try {
             const output = await getWorktrees(repoPath);
             // Output format usually:
@@ -38,8 +40,8 @@ export default function WorktreeDialog({ open, onOpenChange, repoPath }: Worktre
             // Simple parsing assuming standard output
             // Depending on git version, format might vary.
             // Using `git worktree list` text output.
-            const parsed = [];
-            for(let i=0; i<lines.length; i++) {
+            const parsed: Worktree[] = [];
+            for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
                 // It's space separated but path can contain spaces?
                 // Usually: path commit-hash [branch]
@@ -53,10 +55,14 @@ export default function WorktreeDialog({ open, onOpenChange, repoPath }: Worktre
             setWorktrees(parsed);
         } catch (e) {
             console.error(e);
-        } finally {
-            setLoading(false);
         }
-    };
+    }, [repoPath]);
+
+    useEffect(() => {
+        if (open && repoPath) {
+            loadWorktrees();
+        }
+    }, [open, repoPath, loadWorktrees]);
 
     const handleAdd = async () => {
         if (!newPath || !newBranch) return;
@@ -66,8 +72,8 @@ export default function WorktreeDialog({ open, onOpenChange, repoPath }: Worktre
             setNewPath('');
             setNewBranch('');
             await loadWorktrees();
-        } catch(e: any) {
-            alert('Failed to add worktree: ' + e.message);
+        } catch (e: unknown) {
+            alert('Failed to add worktree: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
             setActionLoading(false);
         }
@@ -79,16 +85,17 @@ export default function WorktreeDialog({ open, onOpenChange, repoPath }: Worktre
         try {
             await removeWorktree(repoPath, path);
             await loadWorktrees();
-        } catch(e: any) {
-            alert('Failed to remove worktree: ' + e.message);
+        } catch (e: unknown) {
+            alert('Failed to remove worktree: ' + (e instanceof Error ? e.message : String(e)));
         } finally {
             setActionLoading(false);
         }
     };
     
     const handleBrowse = async () => {
-        if (typeof window !== 'undefined' && (window as any).require) {
-            const { ipcRenderer } = (window as any).require('electron');
+        const electronWindow = window as ElectronWindow;
+        if (typeof window !== 'undefined' && electronWindow.require) {
+            const { ipcRenderer } = electronWindow.require('electron');
             const result = await ipcRenderer.invoke('dialog:openDirectory');
             if (result && !result.canceled && result.filePaths.length > 0) {
                 setNewPath(result.filePaths[0]);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getRepoStats } from '@/lib/electron';
@@ -12,19 +12,29 @@ interface RepoInsightsDialogProps {
     repoPath: string;
 }
 
+interface RepoStats {
+    totalCommits?: number;
+    contributors?: { name: string; commits: number }[];
+    [key: string]: unknown;
+}
+
 export default function RepoInsightsDialog({ open, onOpenChange, repoPath }: RepoInsightsDialogProps) {
-    const [stats, setStats] = useState<any>(null);
+    const [stats, setStats] = useState<RepoStats | null>(null);
     const [loading, setLoading] = useState(false);
 
+    const fetchStats = useCallback(() => {
+        if (!repoPath) return;
+        setLoading(true);
+        getRepoStats(repoPath)
+            .then(data => setStats(data as RepoStats))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [repoPath]);
+
     useEffect(() => {
-        if (open && repoPath) {
-            setLoading(true);
-            getRepoStats(repoPath)
-                .then(data => setStats(data))
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        }
-    }, [open, repoPath]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (open) fetchStats();
+    }, [open, fetchStats]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

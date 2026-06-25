@@ -1,5 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import GitFlowDialog from '../GitFlowDialog';
 import React from 'react';
 
@@ -21,7 +21,7 @@ describe('GitFlowDialog', () => {
 
   it('renders initialization view when not initialized', async () => {
     const { getConfig } = await import('@/lib/electron');
-    (getConfig as any).mockResolvedValue('');
+    vi.mocked(getConfig).mockResolvedValue('');
 
     render(
       <GitFlowDialog 

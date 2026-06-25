@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Popover,
   PopoverContent,
@@ -24,26 +24,26 @@ interface TemplateSelectorProps {
     onSelect: (content: string) => void;
 }
 
+const DEFAULT_TEMPLATES: Template[] = [
+    { id: '1', name: 'Feature', content: 'feat: ' },
+    { id: '2', name: 'Fix', content: 'fix: ' },
+    { id: '3', name: 'Breaking', content: 'feat!: ' },
+    { id: '4', name: 'Chore', content: 'chore: ' },
+];
+
+function loadInitialTemplates(): Template[] {
+    const saved = localStorage.getItem('commitTemplates');
+    if (saved) {
+        try { return JSON.parse(saved) as Template[]; } catch { /* fall through */ }
+    }
+    return DEFAULT_TEMPLATES;
+}
+
 export default function TemplateSelector({ onSelect }: TemplateSelectorProps) {
-    const [templates, setTemplates] = useState<Template[]>([]);
+    const [templates, setTemplates] = useState<Template[]>(loadInitialTemplates);
     const [isCreating, setIsCreating] = useState(false);
     const [newName, setNewName] = useState('');
     const [newContent, setNewContent] = useState('');
-
-    useEffect(() => {
-        const saved = localStorage.getItem('commitTemplates');
-        if (saved) {
-            try { setTemplates(JSON.parse(saved)); } catch {}
-        } else {
-            // Default templates
-            setTemplates([
-                { id: '1', name: 'Feature', content: 'feat: ' },
-                { id: '2', name: 'Fix', content: 'fix: ' },
-                { id: '3', name: 'Breaking', content: 'feat!: ' },
-                { id: '4', name: 'Chore', content: 'chore: ' },
-            ]);
-        }
-    }, []);
 
     const saveTemplates = (newTemplates: Template[]) => {
         setTemplates(newTemplates);

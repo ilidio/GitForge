@@ -32,7 +32,7 @@ describe('Gemini AI Commit Message', () => {
       clear: vi.fn(() => { for (const key in mockLocalStorage) delete mockLocalStorage[key] }),
       length: Object.keys(mockLocalStorage).length,
       key: vi.fn((index) => Object.keys(mockLocalStorage)[index] || null),
-    } as any;
+    } as Storage;
   });
 
   it('calls generateAICommitMessage and updates textarea', async () => {
@@ -57,7 +57,7 @@ describe('Gemini AI Commit Message', () => {
 
   it('calls reviewChanges and opens ReviewDialog', async () => {
     const { reviewChanges } = await import('@/lib/electron');
-    (reviewChanges as any).mockResolvedValue('AI Review Result');
+    vi.mocked(reviewChanges).mockResolvedValue('AI Review Result');
 
     render(<Home />);
     

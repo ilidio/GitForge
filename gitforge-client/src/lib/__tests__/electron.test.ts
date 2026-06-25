@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as electron from '../electron';
 
 describe('electron lib wrappers', () => {
-  const ipcRenderer = (window as any).require('electron').ipcRenderer;
+type ElectronWindow = Window & { require: (module: string) => { ipcRenderer: ReturnType<typeof vi.fn> & { invoke: ReturnType<typeof vi.fn> } } };
+  const ipcRenderer = (window as ElectronWindow).require('electron').ipcRenderer;
 
   beforeEach(() => {
     vi.clearAllMocks();

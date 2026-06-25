@@ -1,5 +1,5 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import DiffView from '../DiffView';
 import React from 'react';
 
@@ -12,7 +12,7 @@ vi.mock('monaco-editor', () => ({
 
 // Mock @monaco-editor/react
 vi.mock('@monaco-editor/react', () => ({
-  DiffEditor: vi.fn(({ original, modified }) => <div data-testid="monaco-diff-editor">{modified}</div>),
+  DiffEditor: vi.fn(({ modified }: { original: string; modified: string }) => <div data-testid="monaco-diff-editor">{modified}</div>),
   loader: {
     config: vi.fn(),
   }

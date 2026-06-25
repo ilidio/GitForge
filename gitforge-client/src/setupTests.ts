@@ -15,7 +15,8 @@ if (typeof document !== 'undefined' && !document.queryCommandSupported) {
 
 // Mock Electron IPC
 if (typeof window !== 'undefined') {
-  (window as any).require = (module: string) => {
+  type ElectronTestWindow = Window & { require: (module: string) => unknown };
+  (window as ElectronTestWindow).require = (module: string) => {
     if (module === 'electron') {
       return {
         ipcRenderer: mockIpcRenderer,

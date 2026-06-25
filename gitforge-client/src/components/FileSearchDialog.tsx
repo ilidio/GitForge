@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from 'cmdk';
 import { lsFiles } from '@/lib/electron';
@@ -17,15 +17,19 @@ export default function FileSearchDialog({ open, onOpenChange, repoPath, onSelec
     const [files, setFiles] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
 
+    const fetchFiles = useCallback(() => {
+        if (!repoPath) return;
+        setLoading(true);
+        lsFiles(repoPath)
+            .then(output => setFiles(output.split('\n').filter(Boolean)))
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [repoPath]);
+
     useEffect(() => {
-        if (open && repoPath) {
-            setLoading(true);
-            lsFiles(repoPath)
-                .then(output => setFiles(output.split('\n').filter(Boolean)))
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        }
-    }, [open, repoPath]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (open) fetchFiles();
+    }, [open, fetchFiles]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>

@@ -3,7 +3,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getFileHistory } from '@/lib/electron';
 import { Loader2, History } from 'lucide-react';
 
@@ -14,25 +14,36 @@ interface FileHistoryDialogProps {
     filePath: string | null;
 }
 
+interface FileHistoryCommit {
+    id: string;
+    author: string;
+    date: string;
+    message: string;
+}
+
 export default function FileHistoryDialog({ open, onOpenChange, repoPath, filePath }: FileHistoryDialogProps) {
-    const [commits, setCommits] = useState<any[]>([]);
+    const [commits, setCommits] = useState<FileHistoryCommit[]>([]);
     const [loading, setLoading] = useState(false);
 
+    const fetchHistory = useCallback(() => {
+        if (!repoPath || !filePath) return;
+        setLoading(true);
+        getFileHistory(repoPath, filePath)
+            .then(output => {
+                const parsed = output.split('\n').filter((l: string) => l).map((line: string) => {
+                    const [id, author, date, message] = line.split('|');
+                    return { id, author, date, message };
+                });
+                setCommits(parsed);
+            })
+            .catch(console.error)
+            .finally(() => setLoading(false));
+    }, [repoPath, filePath]);
+
     useEffect(() => {
-        if (open && repoPath && filePath) {
-            setLoading(true);
-            getFileHistory(repoPath, filePath)
-                .then(output => {
-                    const parsed = output.split('\n').filter((l: string) => l).map((line: string) => {
-                        const [id, author, date, message] = line.split('|');
-                        return { id, author, date, message };
-                    });
-                    setCommits(parsed);
-                })
-                .catch(console.error)
-                .finally(() => setLoading(false));
-        }
-    }, [open, repoPath, filePath]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (open) fetchHistory();
+    }, [open, fetchHistory]);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
